@@ -1,0 +1,178 @@
+---
+title: "Tables and plots of TCR and neoantigens for the paper"
+author: "Ludmila Danilova & Joe Tandurella"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, echo=FALSE, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Vizualization for the paper using saved results from TCR, neoantigen, and ESTIMATE analyses. The results that will go to the paper as supplementary tables and figures.
+
+# R libraries and versions
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+rm(list = ls())
+library('readxl')
+library('DESeq2')
+library('ComplexHeatmap')
+library(ggplot2)
+library('DT')
+library(ggpubr)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(plyr)
+library(xlsx)
+library(kableExtra)
+
+set.seed(1234)
+sessionInfo()
+
+#rootDir = "C:/Users/ldanilo1/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+rootDir = "../../"
+
+source(paste0(rootDir,"Analysis/Scripts/params_and_functions.r"))
+# overwrite time colors
+timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
+
+timeLab = c("Baseline","C1D1","Week 8")
+```
+
+# Load data
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+#===========================
+# load deidentified tcr and neoantigen data
+tcrDat = read.csv(paste0(rootDir,"Analysis/Data/Beta_clones/tcr_beta_diversity.csv"), row.names = 1)
+
+datatable(tcrDat)
+
+#========================
+# load neoantigen data
+neoDat = read.csv(paste0(rootDir,"Analysis/Data/Neoantigen/nBinders_classII_strong.csv"))
+
+# create rownames for neoantigen data
+rownames(neoDat) = paste(neoDat$pubID, neoDat$Timepoint, sep = "_")
+datatable(neoDat)
+
+#========================
+# read in ESTIMATE data
+estimateCounts <- read.table(paste0(rootDir,'Analysis/Data/RNAseq/estimate/estimateScores.tsv'), header = TRUE, sep = "\t", skip = 2, row.names = 1)
+estimateCounts = data.frame(t(estimateCounts[,-1]), check.names = F)
+rownames(estimateCounts) = fix_sample_names(rownames(estimateCounts))
+# change rownames to match the neoantigen data and publication labels
+# split the rownames to get patient ID and time point
+estimateCounts = cbind(Time = sapply(strsplit(rownames(estimateCounts), "_"), getElement, 2), estimateCounts)
+estimateCounts= cbind(patientID = sapply(strsplit(rownames(estimateCounts), "_"), getElement, 1), estimateCounts)
+
+# change labels of time points
+estimateCounts$pub_Time = factor(estimateCounts$Time, labels = c("Baseline","C1D1","Week_8"))
+
+# new rownames
+rownames(estimateCounts) = paste(estimateCounts$patientID, estimateCounts$pub_Time, sep = "_")
+#========================
+# merge tcr and neoantigen data
+dat = merge(tcrDat, neoDat, by = "row.names", all = T)
+
+dat = merge(dat, estimateCounts[,c("StromalScore", "ImmuneScore","ESTIMATEScore")], by.x = "Row.names", by.y = "row.names", all = T)
+
+#====================================
+# calculate tumor purity using ESTIMATE score and the formula from Yoshihara et al. 2013
+# https://www.nature.com/articles/ncomms3612#Sec2
+# Tumour purity=cos (0.6049872018+0.0001467884 × ESTIMATE score). (1)
+#purity = 1- 
+#  cos(0.6049872018 + 0.0001467884 * estimateCounts$ESTIMATEScore) 
+
+
+#============================
+# save a table for the paper
+#write.csv(dat[,c("Row.names","patientID", "Time", "RECIST", "Subtype", "chaos1", "nNeoantigens_strong")], paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/diversity_neoantigen_table.csv"), row.names = F)
+#write.csv(dat[,c("Row.names","patientID", "Time", "RECIST", "Subtype", "chaos1", "nNeoantigens_strong","StromalScore", "ImmuneScore","ESTIMATEScore")], paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/diversity_neoantigen_estimate_table.csv"), row.names = F)
+
+```
+
+## Diversity Boxplot
+
+```{r echo=FALSE, fig.width=10, eval=TRUE}
+df_all = CreateAllFacet(dat,"RECIST")
+p = ggpaired(df_all , x="Time",y="chaos1", id = "patientID",
+             line.size = 0.8, ylab = "Diversity",
+             line.color = "RECIST",
+             palette =  recistCol, xlab="Time",
+             ggtheme = theme_minimal()) +
+        facet_wrap("facet") +
+        stat_compare_means(
+          comparisons = list(c(1,2), c(2,3),c(1,3)), size = 5)+
+        scale_x_discrete(labels=timeLab)+
+  theme(text = element_text(size = 20),
+        axis.text.x = element_text(size = 17), legend.position="none")
+  print(p)
+
+ 
+
+```
+
+## Neoantigen Boxplot
+
+```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
+
+ p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="nNeoantigens_strong", id = "pubID", line.size = 0.8, 
+               line.color = "RECIST",palette =  recistCol,
+               ggtheme = theme_minimal(),
+               title = "", xlab="Time", ylab = "The number of strong binders") +
+      facet_wrap("facet") +
+      scale_x_discrete(labels=timeLab)+
+      scale_y_continuous(trans = "log10")+
+      stat_compare_means(comparisons =list(c(1,2), c(2,3),c(1,3)), size = 5)+
+  theme(text = element_text(size = 20),
+        axis.text.x = element_text(size = 17), legend.position="none") 
+
+ print(p)
+```
+
+## ESTIMATE Boxplot
+
+```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
+
+ p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="StromalScore", id = "pubID", line.size = 0.8, 
+               line.color = "RECIST",palette =  recistCol,
+               ggtheme = theme_minimal(),
+               title = "", xlab="Time", ylab = "StromalScore") +
+      facet_wrap("facet") +
+      scale_x_discrete(labels=timeLab)+
+      scale_y_continuous(trans = "log10")+
+      stat_compare_means(comparisons =list(c(1,2), c(2,3),c(1,3)), size = 5)+
+  theme(text = element_text(size = 20),
+        axis.text.x = element_text(size = 17), legend.position="none") 
+
+ print(p)
+#=========== 
+p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="ImmuneScore", id = "pubID", line.size = 0.8, 
+               line.color = "RECIST",palette =  recistCol,
+               ggtheme = theme_minimal(),
+               title = "", xlab="Time", ylab = "ImmuneScore") +
+      facet_wrap("facet") +
+      scale_x_discrete(labels=timeLab)+
+      scale_y_continuous(trans = "log10")+
+      stat_compare_means(comparisons =list(c(1,2), c(2,3),c(1,3)), size = 5)+
+  theme(text = element_text(size = 20),
+        axis.text.x = element_text(size = 17), legend.position="none") 
+
+ print(p)
+```
+# PUREE tumor purity
+
+```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
+# read in the purity data
+purity = read.table(paste0(rootDir,"Analysis/Data/RNAseq/PUREE/45d940a2-5c50-41f6-ba24-497eba7f793c.txt"), row.names = 1, header = T, sep = "\t")
+
+summary(purity)
+
+```

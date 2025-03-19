@@ -1,0 +1,285 @@
+---
+title: "J15221 Entinostat HER2-negative breast cancer trial. CIBERSORT anlaysis"
+author: Ludmila Danilova
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE,
+                      warning = FALSE)
+
+library('xlsx')
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(ggrepel)
+library(msigdbr)
+library(data.table)
+library("DT")
+library(pheatmap)
+library(gridExtra)
+library(babelgene)
+library(stringr)
+library(kableExtra)
+
+
+source("params_and_functions.r")
+
+```
+
+# Heatmaps
+
+Using pubIDs, updated response, and proportions (not absolute values) from CIBERSORTx 
+
+
+```{r echo=FALSE,  fig.width = 10, message = FALSE, warning = FALSE}
+
+# set root folder
+rootDir = "C:/Users/Luda/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+
+# Load data patient data with biopsy site
+dta_pts = read.csv(paste0(rootDir,"for_paper/J15221_trial_paper/input_tables/table_24patient_info.csv"), row.names = 1)
+dta_pts$ID = rownames(dta_pts)
+
+#=======================
+# load publication IDs
+pubID = read.csv(paste0(rootDir,"Doc/publicationID.csv"), row.names = 1)
+
+#==================
+# load deidentified expression and the corresponding annotation object
+load(file = paste0(rootDir,'Analysis/Data/RNAseq/j15221_rnaseq_annot_deidentified.rda'))
+
+dim(exprsDat)  #[1] 22955    37
+
+#=============================== 
+# read in CIBERSORT proportions
+ciberRes = read.csv(file = paste0(rootDir,'Analysis/Data/cibersort_results/CIBERSORTx_Job25_Results.csv'), row.names = 1)
+
+# subset to samples that we agreed to use for further analysis
+ciberRes = ciberRes[sampAnnot$PersonalisID,1:22]
+
+# fix rownames to de-identify
+rownames(ciberRes) = paste(sampAnnot$pubID, sampAnnot$pub_timepoint, sep = "_")
+
+# save values for the paper supplement
+#write.csv(ciberRes, file = paste0(rootDir,'Doc/2024-11-04_RNAseq_paper/table_cibersort_proportions.csv'))
+
+```
+## Heatmaps
+
+
+```{r echo=FALSE,  fig.width = 10, message = FALSE, warning = FALSE}
+#===============
+# make heatmaps
+
+# find cell types that don't show a lot of variation
+ciberSD1 = apply(ciberRes,2,sd)
+cellTypes = names(ciberSD1)[which(ciberSD1 > 0.01)]
+
+  #=====================
+  # plot only cell type with some variation
+  dat = t(ciberRes[,cellTypes])
+  annot = data.frame(Response = factor(sampAnnot[,"Best_Resp"], levels = c("CR","PR","SD","PD")),
+                     RECIST=sampAnnot[,'RECIST'],
+                    Biopsy_site = sampAnnot[,'Tissue_Broad'],
+                       Type = sampAnnot[,'Subtype'],
+                          Timepoint=sampAnnot[,'Timepoint']
+                       )
+  rownames(annot) = rownames(sampAnnot)
+
+  annot_color = list(Timepoint = timeCol, Type = subtypeCol, RECIST = recistCol, Biopsy_site = biopsyCol, Response = respCol)
+  
+# all samples
+  pheatmap(dat,annotation_col = annot, main = 'CIBERSORT. All samples', scale = "none", annotation_colors = annot_color, labels_col = sampAnnot[colnames(dat),"pubID"])
+  
+# ordered by patient and time
+  ord = rownames(sampAnnot)[order(sampAnnot$RECIST,sampAnnot$pubID,sampAnnot$Timepoint)]
+  pheatmap(dat[,ord],annotation_col = annot[ord,], main = 'CIBERSORT. All samples', 
+           scale = "none", annotation_colors = annot_color, 
+           labels_col = sampAnnot[ord,"pubID"], cluster_cols = FALSE, 
+           gaps_col = c(3,5,7,8,10,11,13,14,16,18,21,22,24,26,28,30,32,35))
+
+```
+
+# CIBERSORT proportions
+## p-values
+
+```{r echo=FALSE, fig.width= 10}
+
+# cibersort proportions
+df = data.frame(ciberRes, 
+                sampAnnot[rownames(ciberRes), c("RECIST", "Subtype")],
+                Time = sampAnnot[rownames(ciberRes),"Timepoint"],
+                patientID = sampAnnot[rownames(ciberRes),"pubID"],
+                check.names = F)
+  # calculate p-values
+#  res_ciber = t(sapply(colnames(ciberRes), getWilcox, df))
+  res_ciber = t(sapply(colnames(ciberRes), getWilcoxDelta, df))
+  
+  res_ciber = round(res_ciber,3)
+# table with p-values
+  datatable(res_ciber)
+  
+  # save the tables with p-values for the paper supplement
+  write.csv(res_ciber, file = paste0(rootDir,'Doc/2024-11-04_RNAseq_paper/table_cibersort_pvalues.csv'))
+
+  # barplot
+#  plotBars(ciberRes, plot_avg = T)
+
+```
+
+## Boxplots responders vs non-responders
+
+```{r echo=FALSE, fig.width=10}
+# get significant by time point
+sig = rownames(res_ciber)[which(res_ciber[,"pValue_B_RvsNR"] < 0.05)]
+
+
+##RECIST (Responders vs. Nonresponders)
+for( i in sig)
+{
+df = data.frame(cell_proportion = as.numeric(ciberRes[,i]), 
+                sampAnnot[rownames(ciberRes), c("RECIST","Timepoint", "Subtype")],
+                patientID = sampAnnot[rownames(ciberRes),"pubID"],
+                check.names = F)
+
+p= ggplot(df, aes(x=RECIST, y=cell_proportion)) + 
+  geom_boxplot() + 
+  ylab(i) + 
+  stat_compare_means() + 
+  geom_point() + 
+#  scale_y_log10()+
+#  scale_color_manual(values = subtypeCol) +
+  facet_wrap("Timepoint")+ 
+  theme_bw()
+
+print(p)
+}
+
+```
+
+## Boxplots over time
+
+```{r echo=FALSE, fig.width=10}
+
+# responders vs non-responders across the time
+for( i in cellTypes)
+{
+df = data.frame(cell_proportion = as.numeric(ciberRes[,i]), 
+                sampAnnot[rownames(ciberRes), c("RECIST","Timepoint", "Subtype","pubID")],
+                patientID = sampAnnot[rownames(ciberRes),"pubID"],
+                check.names = F)
+
+  df_all = CreateAllFacet(df,"RECIST")
+  p = ggpaired(df_all , x="Timepoint",y="cell_proportion", id = "pubID", 
+                   line.size = 0.4, title = i, 
+                   line.color = "RECIST",palette =  recistCol, xlab="Time") +
+        facet_wrap("facet") +
+        stat_compare_means(comparisons = list(c(1,2), c(2,3),c(1,3)))
+  print(p)
+}
+
+```
+
+## Boxplots for Monocytes
+
+Plot treatment effect between responders and non-responder (after entinostat)
+
+```{r echo=FALSE, fig.width=4, fig.height=4}
+df = data.frame(Monocytes = as.numeric(ciberRes[,"Monocytes"]), 
+                sampAnnot[rownames(ciberRes), c("RECIST","Timepoint")],
+                patientID = sampAnnot[rownames(ciberRes),"pubID"],
+                check.names = F)
+
+# per patient matrix with time point columns
+mat <- data.frame(matrix(nrow = length(unique(df$patientID)), ncol = 3, 
+                         dimnames = list(unique(df$patientID),
+                                         levels(factor(df$Timepoint)))),
+                  check.names = F)
+# iterate time and fill in matrix
+for(i in levels(factor(df$Timepoint)))
+  {
+    d1 = df %>% filter(Timepoint == i)
+    mat[d1$patientID, i] = d1[,"Monocytes"]
+  }
+# add response
+m = df %>% select(patientID,  RECIST) %>% filter(!(duplicated(patientID)))
+rownames(m) = m$patientID
+mat$RECIST = m[rownames(mat),"RECIST"]
+# create treatment effect (calculate delta)
+# substract baseline from post run-in and week 8 
+mat$delta_T1_B =  mat[,2]-mat[,1]
+
+# delta for responders vs non-responders 
+ggplot(mat, aes(x=RECIST, y=delta_T1_B)) + 
+  geom_boxplot() + 
+  ylab("delta(C1D1 - Baseline)") + 
+  ggtitle("Entinostat treatment effect") +
+  stat_compare_means() + 
+  geom_point(size = 2) + 
+  theme_bw()
+
+```
+
+```{r echo=FALSE, eval=FALSE}
+# Correlations - 2
+
+# NB use results from the previous section. This section is not executed.
+# 
+# Correlates mouse marker genes with CIBERSORT proportions.
+# 
+# Markers of different cell types are in "Cell Markers for scRNA-seq (2).xlsx"
+# 
+# Uses human orthologs of mouse cell markers, which probably not the best markers of cell types for human, so we switched to human specific markers (see section above)
+
+# read in a table with mouse markers
+markers = read.xlsx2(paste0(rootDir,"Doc/2023-05-16_mouse_paper/Cell Markers for scRNA-seq (2).xlsx"), 1, startRow = 2)
+
+# T cells
+msGenes = unlist(strsplit(markers[5,"Representative.Gene.Markers"], ','))
+msGenes = unlist(strsplit(msGenes, '.', fixed = T))
+msGenes = str_trim(msGenes)
+msGenes = str_remove_all(msGenes, '[+-]')
+msGenes = str_remove_all(msGenes, '[*]')
+msGenes = str_to_sentence(msGenes)
+
+#tab = checkGeneSymbols(msGenes, species="mouse")
+
+# creates a table with mouse-human orthologs
+orth = orthologs(msGenes, species = "mouse", human = FALSE, min_support = 3, top = TRUE)
+
+# correlated T cell proportions with expression of those genes
+# combine CIBERSORT proportions and gene expression and run correlation once
+
+# select T cells only
+cells = grep("T.cells", colnames(ciberRes), value = T)
+
+heatmaps = list()
+for(i in timeLab){
+    s = intersect(colnames(rnaData), sampAnnot %>% filter(Time == i) %>% rownames())
+    # combine expression and cibersort results
+    dat = cbind(t(rnaData[orth$human_symbol,s]), ciberRes[s, cells])
+  # run correlation
+  corRes = cor(dat, method = 'spearman')
+  # plot correlation coefficients cells vs genes
+  heatmaps[[i]] = pheatmap(corRes[cells,orth$human_symbol], scale = "none", main = paste0('Spearman correlation coefficients. ', i), cluster_rows = F, cluster_cols = F, breaks = seq(-1, 1, length.out = 21), color = redBlue)
+
+}
+
+# dat = cbind(t(rnaData[orth$human_symbol,]), ciberRes[colnames(rnaData), cells])
+# 
+# corRes = cor(dat)
+# 
+# pheatmap(corRes[cells,orth$human_symbol], scale = "none")
+
+```
+
+
+```{r echo=FALSE}
+
+#sessionInfo()
+```

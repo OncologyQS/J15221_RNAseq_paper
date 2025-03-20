@@ -1,0 +1,317 @@
+---
+title: "RNAseq analysis including lymph node samples. CBR"
+author: "Ludmila Danilova & Joe Tandurella"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, echo=FALSE, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Updated analysis using clinical data from the Nature Cancer paper.
+
+Keep lymph node samples for paired analysis between time points
+
+2024-11-08: Added analysis for CBR
+
+# R libraries and versions
+
+```{r}
+rm(list = ls())
+library('readxl')
+library('DESeq2')
+library('ComplexHeatmap')
+library(ggplot2)
+library('EnhancedVolcano')
+library('sva')
+library('DT')
+library('fgsea')
+library('GSVA')
+library(ggpubr)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(msigdbr)
+library(plyr)
+library(apeglm)
+library(xlsx)
+
+set.seed(1234)
+sessionInfo()
+
+rootDir = "C:/Users/ldanilo1/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+#rootDir = "./"
+
+source("params_and_functions.r")
+# overwrite time colors
+timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
+
+
+```
+
+# Load data
+Load deidentified expression counts and sample annotation from the Nature Cancer paper
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+exprsDat <- as.data.frame(read.table(paste0(rootDir,'Analysis/Data/RNAseq/j15221_evanthia_breast_rnaseq_deidentified.tsv'), row.names = 1, sep = '\t', header = T, check.names = F))
+
+dim(exprsDat)  #[1] 22955    45
+
+# annotation for samples that should be used for analysis
+sampAnnot =read.csv(file=paste0(rootDir,"Analysis/06132023_updated_sampleAnnot_RNAseq.csv"), row.names = 1)
+
+#pairs = printPairs(sampAnnot, patID = "Patient_ID", timepoint = "Timepoint")
+
+#=======================
+# load publication IDs
+pubID = read.csv(paste0(rootDir,"Doc/publicationID.csv"), row.names = 1)
+sampAnnot$pubID = pubID[sampAnnot$Patient_ID,1]
+# publication timepoint labels
+sampAnnot$pub_timepoint = factor(sampAnnot$Timepoint, levels = c("Baseline","C1D1","Week_8"), labels = c("Baseline","Post Run-in","Week 8"))
+# save Personalis sample IDs
+sampAnnot$PersonalisID = rownames(sampAnnot)
+# change rownames to match expression data
+rownames(sampAnnot) = paste(sampAnnot$pubID, sampAnnot$pub_timepoint, sep = "_")
+
+#===================================
+# load  patient table from the paper to update Best_resp
+patTab = read.csv(paste0(rootDir,"for_paper/J15221_trial_paper/input_tables/table_24patient_info.csv"))
+rownames(patTab) = patTab$ID
+sampAnnot$Best_Resp = patTab[sampAnnot$pubID,"Best_Resp"]
+
+# fix RECIST
+sampAnnot$RECIST = factor(sampAnnot$Best_Resp, levels =c("PD","SD","CR","PR"), labels = c("NonResponder","NonResponder","Responder","Responder"))
+# add CBR
+sampAnnot$CBR = factor(sampAnnot$Best_Resp, levels = c("PD","SD","CR","PR"), labels = c("NonResponder","Responder","Responder","Responder"))
+
+# output table
+datatable(sampAnnot)
+
+# save deidentified expression and the corresponding annotation object
+# for further ananlysis
+save(sampAnnot, exprsDat , file = paste0(rootDir,'Analysis/Data/RNAseq/j15221_rnaseq_annot_deidentified.rda'))
+
+##Get VST for the whole dataset (including lymph nodes) for plotting
+dds_plotting <- DESeqDataSetFromMatrix(countData = round(exprsDat[,rownames(sampAnnot)]), 
+                              colData = sampAnnot, 
+                              design=~Subtype)
+vstDat_plotting <- assay(vst(dds_plotting))
+vstDat_plotting <- vstDat_plotting[apply(vstDat_plotting,1,sd)>0,]
+
+```
+
+## Final sample numbers
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+print("Sample Numbers")
+sampAnnot %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "Patient_ID")
+
+
+table(sampAnnot$Time,sampAnnot$Subtype)
+
+table(sampAnnot$Time,sampAnnot$CBR)
+
+
+```
+
+## Prep for gene set analysis
+
+Loading HALLMARK gene sets, Evanthia's cell type markers, and lists of genes with strong and weak neoantigen binders for both class I and II
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+#Gather Genes from msigdbr
+HALLMARK_df = msigdbr(species = "Homo sapiens", category = "H")
+HALLMARK_list = HALLMARK_df %>% split(x = .$gene_symbol, f = .$gs_name)
+# load Evanthia's gene sets
+# read in a table with mouse markers
+markers = read.xlsx2(paste0(rootDir,"Doc/2023-05-16_mouse_paper/Human Cell Markers for scRNA-seq (1).xlsx"), 1, startRow = 2, endRow = 63)
+# create list of gene sets
+evanthia_list = markers %>% split(x = .$Representative.Gene.Markers, f = .$Cell.Type.)
+Evanthia_CellTypes = lapply(evanthia_list,fixGeneNames)
+
+# print Evanthia/Edgar's set of markers
+
+print("top five Evanthia's gene sets:")
+print(Evanthia_CellTypes[1:5])
+
+# neoantigens
+# lists of genes that predicted to have strong or weak binders
+neoantigen_list = list()
+neoantigen_list$class1_strong = unlist(read.table(paste0(rootDir,"Analysis/Data/Neoantigen/neoantigenGenes_classI_strong.txt")))
+neoantigen_list$class1_weak = unlist(read.table(paste0(rootDir,"Analysis/Data/Neoantigen/neoantigenGenes_classI_weak.txt")))
+neoantigen_list$class2_strong = unlist(read.table(paste0(rootDir,"Analysis/Data/Neoantigen/neoantigenGenes_classII_strong.txt")))
+neoantigen_list$class2_weak = unlist(read.table(paste0(rootDir,"Analysis/Data/Neoantigen/neoantigenGenes_classII_weak.txt")))
+
+print("Neoantigens:")
+print(sapply(neoantigen_list, length))
+```
+
+# CBR DE
+
+For this DE, we will be doing a DE analysis to compare CBR responder v nonresponder.
+
+## Clinical Responder vs Clinical Nonresponder (Baseline)
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
+table(annot$CBR)
+
+res = getDEres(round(exprsDat[,rownames(annot)]), 
+               annot, "~Tissue_Broad+CBR", 
+               contrast = "CBR_Responder_vs_NonResponder", lfcShrink = T)
+
+# output all DE results  
+datatable(data.frame(res))
+# plots volcano plot and saves top DE genes
+topDE = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_DEGenes.csv"),
+                       main_title = "Baseline. NonResponder vs Responder (CBR)")
+
+# print some statistics
+cat("The number of significantly DE genes:\n",
+length(topDE))
+cat("The number of down- and up-regulated genes:\n",
+    table(res[topDE,"log2FoldChange"] >0))
+
+```
+
+### Heatmap of Responder vs Nonresponder
+```{r echo=FALSE, message = FALSE, warning = FALSE, fig.height=7}
+##use all samples including lymph nodes
+plotHA_cbr(sampAnnot[sampAnnot$Timepoint=="Baseline",], vstDat_plotting, topDE)
+
+```
+
+### Hallmark Pathway analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+  stats <- res$log2FoldChange
+  names(stats) <- row.names(res)
+
+##Pathway Analysis
+baseline_CBR_NonRespondervResponder_gsResults <-
+  list(HALLMARK=fgsea(pathways=HALLMARK_list, stats=stats),
+       Evanthia_CellTypes=fgsea(pathways=Evanthia_CellTypes, stats=stats),
+       neoantigens = fgsea(pathways=neoantigen_list, stats=stats))
+
+datatable(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK)
+fwrite(as.data.frame(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_Hallmark.csv"))
+
+# make barplots
+fgseaBarplot(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK, 
+             main_title = "Hallmark Pathways. Baseline. NonResponder vs Responder (CBR)")
+
+```
+
+### Evanthia_Celltypes gene set analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+datatable(baseline_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes)
+fwrite(as.data.frame(baseline_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_Evanthia_CellTypes.csv"))
+
+# make barplots
+fgseaBarplot(baseline_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes, 
+             main_title = "Evanthia_CellTypes. Baseline. NonResponder vs Responder (CBR)")
+
+```
+
+### Neoantigen lists
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+# intersect with topDE genes
+print("Intersect with top DE genes")
+sapply(neoantigen_list, function(x) length(intersect(x,topDE)))
+
+datatable(baseline_CBR_NonRespondervResponder_gsResults$neoantigens)
+fwrite(as.data.frame(baseline_CBR_NonRespondervResponder_gsResults$neoantigens), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_neoantigens.csv"))
+
+```
+
+## Responder vs Nonresponder (C1D1)
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+table(annot$CBR)
+
+res = getDEres(round(exprsDat[,rownames(annot)]), 
+               annot, "~Tissue_Broad+CBR", 
+               contrast = "CBR_Responder_vs_NonResponder", lfcShrink = T)
+
+# output all DE results  
+datatable(data.frame(res))
+# plots volcano plot and saves top DE genes
+topDE = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_DEGenes.csv"),
+                       main_title = "C1D1. NonResponder vs Responder (CBR)")
+
+# print some statistics
+cat("The number of significantly DE genes:\n",
+length(topDE))
+cat("The number of down- and up-regulated genes:\n",
+    table(res[topDE,"log2FoldChange"] >0))
+```
+
+### Heatmap of Responder vs Nonresponder
+
+```{r echo=FALSE, message = FALSE, warning = FALSE, fig.height=7}
+##use all samples including lymph nodes
+anno <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+plotHA_cbr(anno, vstDat_plotting, topDE)
+
+```
+
+### Hallmark Pathway analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+  stats <- res$log2FoldChange
+  names(stats) <- row.names(res)
+
+##Pathway Analysis
+C1D1_CBR_NonRespondervResponder_gsResults <-
+  list(HALLMARK=fgsea(pathways=HALLMARK_list,stats=stats),
+       Evanthia_CellTypes=fgsea(pathways=Evanthia_CellTypes,stats=stats),
+       neoantigens = fgsea(pathways=neoantigen_list, stats=stats))
+
+  datatable(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK)
+fwrite(as.data.frame(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_Hallmark.csv"))
+
+# make barplots
+fgseaBarplot(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK, 
+             main_title = "Hallmark pathways. C1D1. NonResponder vs Responder (CBR)")
+
+```
+
+### Evanthia_Celltypes gene set analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+
+datatable(C1D1_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes)
+fwrite(as.data.frame(C1D1_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_Evanthia_CellTypes.csv"))
+
+# make barplots
+fgseaBarplot(C1D1_CBR_NonRespondervResponder_gsResults$Evanthia_CellTypes, 
+             main_title = "Evanthia_CellTypes. C1D1. NonResponder vs Responder (CBR)")
+
+```
+
+### Neoantigen lists
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+# intersect with topDE genes
+print("Intersect with top DE genes")
+sapply(neoantigen_list, function(x) length(intersect(x,topDE)))
+
+datatable(C1D1_CBR_NonRespondervResponder_gsResults$neoantigens)
+fwrite(as.data.frame(C1D1_CBR_NonRespondervResponder_gsResults$neoantigens), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_neoantigens.csv"))
+
+```
+
+## Responder vs Nonresponder (Week 8)
+
+Not enough samples to do DE analysis
+

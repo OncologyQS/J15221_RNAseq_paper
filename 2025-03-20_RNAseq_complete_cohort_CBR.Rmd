@@ -1,0 +1,197 @@
+---
+title: "RNAseq analysis including lymph node samples. CBR"
+author: "Ludmila Danilova & Joe Tandurella"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, echo=FALSE, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list = ls())
+library('readxl')
+library('DESeq2')
+library('ComplexHeatmap')
+library(ggplot2)
+library('EnhancedVolcano')
+library('sva')
+library('DT')
+library('fgsea')
+library('GSVA')
+library(ggpubr)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(msigdbr)
+library(plyr)
+library(apeglm)
+library(xlsx)
+
+set.seed(1234)
+sessionInfo()
+
+rootDir = "C:/Users/Luda/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+#rootDir = "./"
+
+source("params_and_functions.r")
+# overwrite time colors
+timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
+
+
+```
+
+Updated analysis using clinical data from the Nature Cancer paper.
+
+Keep lymph node samples for paired analysis between time points
+
+# Load data
+Load deidentified expression counts and sample annotation from the Nature Cancer paper
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+# load deidentified expression and the corresponding annotation object
+load(file = paste0(rootDir,'Analysis/Data/RNAseq/j15221_rnaseq_annot_deidentified.rda'))
+
+dim(exprsDat)  #[1] 22955    37
+
+# output table
+datatable(sampAnnot)
+
+dds_plotting <- DESeqDataSetFromMatrix(countData = round(exprsDat[,rownames(sampAnnot)]), 
+                              colData = sampAnnot, 
+                              design=~Subtype)
+vstDat_plotting <- assay(vst(dds_plotting))
+vstDat_plotting <- vstDat_plotting[apply(vstDat_plotting,1,sd)>0,]
+
+```
+
+## Final sample numbers
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+print("Sample Numbers")
+sampAnnot %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "Patient_ID")
+
+
+table(sampAnnot$Time,sampAnnot$Subtype)
+
+table(sampAnnot$Time,sampAnnot$CBR)
+
+
+```
+
+## Prep for gene set analysis
+
+Loading HALLMARK gene sets, Evanthia's cell type markers, and lists of genes with strong and weak neoantigen binders for both class I and II
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+#Gather Genes from msigdbr
+HALLMARK_df = msigdbr(species = "Homo sapiens", category = "H")
+HALLMARK_list = HALLMARK_df %>% split(x = .$gene_symbol, f = .$gs_name)
+```
+
+# CBR DE
+
+For this DE, we will be doing a DE analysis to compare CBR responder v nonresponder.
+
+## Clinical Responder vs Clinical Nonresponder (Baseline)
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
+table(annot$CBR)
+
+res = getDEres(round(exprsDat[,rownames(annot)]), 
+               annot, "~Tissue_Broad+CBR", 
+               contrast = "CBR_Responder_vs_NonResponder", lfcShrink = T)
+
+# output all DE results  
+datatable(data.frame(res))
+# plots volcano plot and saves top DE genes
+topDE = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_DEGenes.csv"),
+                       main_title = "Baseline. NonResponder vs Responder (CBR)")
+
+```
+
+### Heatmap of Responder vs Nonresponder
+```{r echo=FALSE, message = FALSE, warning = FALSE, fig.height=7}
+##use all samples including lymph nodes
+plotHA_cbr(sampAnnot[sampAnnot$Timepoint=="Baseline",], vstDat_plotting, topDE)
+
+```
+
+### Hallmark Pathway analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+  stats <- res$log2FoldChange
+  names(stats) <- row.names(res)
+
+##Pathway Analysis
+baseline_CBR_NonRespondervResponder_gsResults <-
+  list(HALLMARK=fgsea(pathways=HALLMARK_list, stats=stats))
+
+datatable(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK)
+fwrite(as.data.frame(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/Baseline_CBR_RespondervNonResponder_Hallmark.csv"))
+
+# make barplots
+fgseaBarplot(baseline_CBR_NonRespondervResponder_gsResults$HALLMARK, 
+             main_title = "Hallmark Pathways. Baseline. NonResponder vs Responder (CBR)")
+
+```
+
+
+## Responder vs Nonresponder (C1D1)
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+table(annot$CBR)
+
+res = getDEres(round(exprsDat[,rownames(annot)]), 
+               annot, "~Tissue_Broad+CBR", 
+               contrast = "CBR_Responder_vs_NonResponder", lfcShrink = T)
+
+# output all DE results  
+datatable(data.frame(res))
+# plots volcano plot and saves top DE genes
+topDE = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_DEGenes.csv"),
+                       main_title = "C1D1. NonResponder vs Responder (CBR)")
+
+```
+
+### Heatmap of Responder vs Nonresponder
+
+```{r echo=FALSE, message = FALSE, warning = FALSE, fig.height=7}
+##use all samples including lymph nodes
+anno <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+plotHA_cbr(anno, vstDat_plotting, topDE)
+
+```
+
+### Hallmark Pathway analysis
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+  stats <- res$log2FoldChange
+  names(stats) <- row.names(res)
+
+##Pathway Analysis
+C1D1_CBR_NonRespondervResponder_gsResults <-
+  list(HALLMARK=fgsea(pathways=HALLMARK_list,stats=stats))
+
+  datatable(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK)
+fwrite(as.data.frame(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK), file=paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/C1D1_CBR_RespondervNonResponder_Hallmark.csv"))
+
+# make barplots
+fgseaBarplot(C1D1_CBR_NonRespondervResponder_gsResults$HALLMARK, 
+             main_title = "Hallmark pathways. C1D1. NonResponder vs Responder (CBR)")
+
+```
+
+## Responder vs Nonresponder (Week 8)
+
+Not enough samples to do DE analysis
+

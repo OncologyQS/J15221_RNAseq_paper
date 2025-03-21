@@ -326,6 +326,7 @@ plotVolcano = function(res, fdrThr = 0.05, logFCthr = 0.5,
       nrow(TopDE),"\n")
   cat("The number of down- and up-regulated genes:\n",
       table(TopDE[,"log2FoldChange"] >0),"\n")
+  TopDE = as.data.frame(TopDE)
   # list genes up and down regulated
   cat("The top up-regulated genes:\n",
       TopDE %>% filter(log2FoldChange > 0) %>% rownames(),"\n")

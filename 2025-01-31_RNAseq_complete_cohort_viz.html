@@ -11,7 +11,7 @@
 
 <meta name="author" content="Ludmila Danilova &amp; Joe Tandurella" />
 
-<meta name="date" content="2025-03-20" />
+<meta name="date" content="2025-03-31" />
 
 <title>Visualization of RNAseq data analysis</title>
 
@@ -2858,7 +2858,7 @@ display: none;
 
 <h1 class="title toc-ignore">Visualization of RNAseq data analysis</h1>
 <h4 class="author">Ludmila Danilova &amp; Joe Tandurella</h4>
-<h4 class="date">2025-03-20</h4>
+<h4 class="date">2025-03-31</h4>
 
 </div>
 
@@ -2866,7 +2866,11 @@ display: none;
 <ul>
 <li><a href="#r-libraries-and-versions" id="toc-r-libraries-and-versions">R libraries and versions</a></li>
 <li><a href="#load-data" id="toc-load-data">Load data</a></li>
-<li><a href="#pca" id="toc-pca">PCA</a></li>
+<li><a href="#pca" id="toc-pca">PCA</a>
+<ul>
+<li><a href="#final-sample-numbers" id="toc-final-sample-numbers">Final
+sample numbers</a></li>
+</ul></li>
 <li><a href="#time-de" id="toc-time-de">Time DE</a>
 <ul>
 <li><a href="#baseline-vs-c1d1" id="toc-baseline-vs-c1d1">Baseline vs
@@ -2951,7 +2955,7 @@ folder.</p>
 <h1>R libraries and versions</h1>
 <pre><code>## R version 4.4.2 (2024-10-31 ucrt)
 ## Platform: x86_64-w64-mingw32/x64
-## Running under: Windows 11 x64 (build 22621)
+## Running under: Windows 10 x64 (build 19045)
 ## 
 ## Matrix products: default
 ## 
@@ -2971,11 +2975,11 @@ folder.</p>
 ## [8] methods   base     
 ## 
 ## other attached packages:
-##  [1] GSVA_2.0.2                  RColorBrewer_1.1-3         
+##  [1] GSVA_2.0.5                  RColorBrewer_1.1-3         
 ##  [3] pam50_0.2.0                 kableExtra_1.4.0           
 ##  [5] xlsx_0.6.5                  apeglm_1.28.0              
 ##  [7] plyr_1.8.9                  msigdbr_7.5.1              
-##  [9] data.table_1.16.2           lubridate_1.9.3            
+##  [9] data.table_1.16.4           lubridate_1.9.3            
 ## [11] forcats_1.0.0               stringr_1.5.1              
 ## [13] dplyr_1.1.4                 purrr_1.0.2                
 ## [15] readr_2.1.5                 tidyr_1.3.1                
@@ -2999,20 +3003,20 @@ folder.</p>
 ##  [11] rstatix_0.7.2               htmltools_0.5.8.1          
 ##  [13] S4Arrays_1.6.0              broom_1.0.7                
 ##  [15] Rhdf5lib_1.28.0             cellranger_1.1.0           
-##  [17] rhdf5_2.50.0                SparseArray_1.6.0          
+##  [17] rhdf5_2.50.2                SparseArray_1.6.0          
 ##  [19] Formula_1.2-5               sass_0.4.9                 
 ##  [21] bslib_0.9.0                 htmlwidgets_1.6.4          
 ##  [23] cachem_1.1.0                lifecycle_1.0.4            
 ##  [25] iterators_1.0.14            pkgconfig_2.0.3            
 ##  [27] rsvd_1.0.5                  Matrix_1.7-1               
-##  [29] R6_2.5.1                    fastmap_1.2.0              
+##  [29] R6_2.6.0                    fastmap_1.2.0              
 ##  [31] GenomeInfoDbData_1.2.13     clue_0.3-66                
 ##  [33] digest_0.6.37               numDeriv_2016.8-1.1        
 ##  [35] colorspace_2.1-1            AnnotationDbi_1.68.0       
 ##  [37] irlba_2.3.5.1               RSQLite_2.3.9              
 ##  [39] beachmat_2.22.0             timechange_0.3.0           
 ##  [41] httr_1.4.7                  abind_1.4-8                
-##  [43] compiler_4.4.2              bit64_4.5.2                
+##  [43] compiler_4.4.2              bit64_4.6.0-1              
 ##  [45] withr_3.0.2                 doParallel_1.0.17          
 ##  [47] backports_1.5.0             BiocParallel_1.40.0        
 ##  [49] DBI_1.2.3                   carData_3.0-5              
@@ -3030,14 +3034,14 @@ folder.</p>
 ##  [73] circlize_0.4.16             rJava_1.0-11               
 ##  [75] lattice_0.22-6              bit_4.5.0.1                
 ##  [77] annotate_1.84.0             tidyselect_1.2.1           
-##  [79] SingleCellExperiment_1.28.1 locfit_1.5-9.11            
-##  [81] Biostrings_2.74.0           knitr_1.49                 
+##  [79] SingleCellExperiment_1.28.1 locfit_1.5-9.10            
+##  [81] Biostrings_2.74.1           knitr_1.49                 
 ##  [83] gridExtra_2.3               svglite_2.1.3              
 ##  [85] xfun_0.49                   stringi_1.8.4              
 ##  [87] UCSC.utils_1.2.0            yaml_2.3.10                
 ##  [89] evaluate_1.0.3              codetools_0.2-20           
 ##  [91] xlsxjars_0.6.1              bbmle_1.0.25.1             
-##  [93] graph_1.84.0                cli_3.6.3                  
+##  [93] graph_1.84.1                cli_3.6.3                  
 ##  [95] xtable_1.8-4                systemfonts_1.1.0          
 ##  [97] munsell_0.5.1               jquerylib_0.1.4            
 ##  [99] Rcpp_1.0.14                 coda_0.19-4.1              
@@ -3056,11 +3060,206 @@ folder.</p>
 (deidentified data with sample annotation from the Nature Cancer
 paper)</p>
 <pre><code>## [1] 22955    37</code></pre>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-1b4ff99564eb6e8884a5" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-1b4ff99564eb6e8884a5">{"x":{"filter":"none","vertical":false,"data":[["R-18_Baseline","R-5_Baseline","R-5_Post Run-in","R-12_Baseline","R-12_Post Run-in","R-19_Post Run-in","R-20_Baseline","R-20_Post Run-in","R-2_Baseline","R-2_Post Run-in","R-18_Post Run-in","R-2_Week 8","R-14_Baseline","R-14_Post Run-in","R-6_Baseline","R-6_Post Run-in","R-6_Week 8","R-8_Baseline","R-8_Post Run-in","R-17_Baseline","R-17_Post Run-in","R-23_Week 8","R-16_Post Run-in","R-16_Week 8","R-4_Week 8","R-24_Baseline","R-24_Post Run-in","R-9_Baseline","R-9_Post Run-in","R-7_Post Run-in","R-15_Baseline","R-13_Post Run-in","R-13_Week 8","R-10_Baseline","R-10_Week 8","R-10_Post Run-in","R-4_Baseline"],["PA015-019","PA015-030","PA015-030","MD017-031","MD017-031","MD017-034","CT018-036","CT018-036","CA043-038","CA043-038","PA015-019","CA043-038","CA043-039","CA043-039","CA043-041","CA043-041","CA043-041","CT018-042","CT018-042","MD017-045","MD017-045","MD017-046","MD017-048","MD017-048","MD017-051","CT018-052","CT018-052","CA043-054","CA043-054","CA043-055","PA015-057","MD017-027","MD017-027","MD017-029","MD017-029","MD017-029","MD017-051"],["Baseline","Baseline","C1D1","Baseline","C1D1","C1D1","Baseline","C1D1","Baseline","C1D1","C1D1","Week_8","Baseline","C1D1","Baseline","C1D1","Week_8","Baseline","C1D1","Baseline","C1D1","Week_8","C1D1","Week_8","Week_8","Baseline","C1D1","Baseline","C1D1","C1D1","Baseline","C1D1","Week_8","Baseline","Week_8","C1D1","Baseline"],["Anterior_Chest_Wall","L_Chest_Wall","L_Chest_Wall","L_Hepatic_Mass","L_Hepatic_Mass","R_Axillary_Node","R_Breast","R_Breast","R_Axillary_Node","R_Axillary_Node","Anterior_Chest_Wall","R_Axillary_Node","R_Pelvic_Sidewall_Node","R_Iliac_Node","L_Chest_Wall","L_Chest_Wall","L_Chest_Wall","L_Breast","L_Breast","L_Hepatic_Mass","L_Hepatic_Mass","R_Anterior_Eighth_Rib","Lung_Right_Lobe","Lung_Right_Lobe","R_Hepatic_Lobe","Liver","Liver","L_Abdominal_Omentum","L_Abdominal_Omentum","Lung","Superficial_Lymph_Node","R_Hepatic_Lobe","R_Hepatic_Lobe","L_Axillary_Node","L_Axillary_Node","L_Axillary_Node","R_Hepatic_Lobe"],["Chest_Wall","Chest_Wall","Chest_Wall","Liver","Liver","Lymph_Node","Breast","Breast","Lymph_Node","Lymph_Node","Chest_Wall","Lymph_Node","Lymph_Node","Lymph_Node","Chest_Wall","Chest_Wall","Chest_Wall","Breast","Breast","Liver","Liver","Chest_Wall","Lung","Lung","Liver","Liver","Liver","Omentum","Omentum","Lung","Lymph_Node","Liver","Liver","Lymph_Node","Lymph_Node","Lymph_Node","Liver"],["HR+","TNBC","TNBC","HR+","HR+","HR+","HR+","HR+","TNBC","TNBC","HR+","TNBC","TNBC","TNBC","TNBC","TNBC","TNBC","TNBC","TNBC","TNBC","TNBC","HR+","TNBC","TNBC","HR+","HR+","HR+","HR+","HR+","TNBC","TNBC","HR+","HR+","HR+","HR+","HR+","HR+"],["PR","CR","CR","PD","PD","PD","SD","SD","PR","PR","PR","PR","PR","PR","SD","SD","SD","PD","PD","PD","PD","SD","PR","PR","PD","PD","PD","PD","PD","SD","SD","SD","SD","SD","SD","SD","PD"],["Responder","Responder","Responder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","Responder","Responder","Responder","Responder","Responder","Responder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","Responder","Responder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder"],["PR","CR","CR","Off study","Off study","PD","Died","Died","PR","PR","PR","PR","PR","PR","Died","Died","Died","PD","PD","PD","PD","Died","PR","PR","PR","PD","PD","Unknown","Unknown","Unknown","SD","Died","Died","Unknown","Unknown","Unknown","PR"],["Yes","Yes","Yes","No","No","No","No","No","Yes","Yes","Yes","Yes","Yes","Yes","No","No","No","No","No","No","No","No","Yes","Yes","Yes","No","No","No","No","No","Yes","No","No","No","No","No","Yes"],["Yes","Yes","Yes","No","No","No","No","No","Yes","Yes","Yes","Yes","Yes","Yes","No","No","No","No","No","No","No","No","Yes","Yes","No","No","No","No","No","No","No","No","No","No","No","No","No"],["Yes","Yes","Yes","No","No","No","No","No","Yes","Yes","Yes","Yes","Yes","Yes","No","No","No","No","No","No","No","No","Yes","Yes","No","No","No","No","No","No","No","No","No","No","No","No","No"],[12,4,4,7,7,8,10,10,5,5,12,5,10,10,5,5,5,3,3,4,4,7,3,3,8,12,12,13,13,6,1,8,8,7,7,7,8],[67.34999999999999,52.14,52.14,1.31,1.31,2.27,7.33,7.33,4.83,4.83,67.34999999999999,4.83,16.85,16.85,2.1,2.1,2.1,2.2,2.2,2.1,2.1,5.03,24.02,24.02,3.98,1.15,1.15,1.31,1.31,11.2,8.08,4.8,4.8,46.85,46.85,46.85,3.98],[0,0,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1],[67.34999999999999,52.14,52.14,3.45,3.45,11.66,7.33,7.33,19.58,19.58,67.34999999999999,19.58,24.38,24.38,2.83,2.83,2.83,8.08,8.08,11.99,11.99,5.03,24.02,24.02,13.34,6.74,6.74,1.71,1.71,11.2,16.76,4.8,4.8,46.85,46.85,46.85,13.34],[0,0,0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1],["","*","*","","","","","","","","","","","","","","","","","","","","*","*","","","","","","","","","","","","",""],["R-18","R-5","R-5","R-12","R-12","R-19","R-20","R-20","R-2","R-2","R-18","R-2","R-14","R-14","R-6","R-6","R-6","R-8","R-8","R-17","R-17","R-23","R-16","R-16","R-4","R-24","R-24","R-9","R-9","R-7","R-15","R-13","R-13","R-10","R-10","R-10","R-4"],["Baseline","Baseline","Post Run-in","Baseline","Post Run-in","Post Run-in","Baseline","Post Run-in","Baseline","Post Run-in","Post Run-in","Week 8","Baseline","Post Run-in","Baseline","Post Run-in","Week 8","Baseline","Post Run-in","Baseline","Post Run-in","Week 8","Post Run-in","Week 8","Week 8","Baseline","Post Run-in","Baseline","Post Run-in","Post Run-in","Baseline","Post Run-in","Week 8","Baseline","Week 8","Post Run-in","Baseline"],["1_Baseline_FFPE_curls","10_Baseline_FFPE_curls","11_C1D1_FFPE_curls","12_Baseline_FFPE_slides","13_C1D1_FFPE_slides","15_C1D1_FFPE_curls","16_Baseline_FFPE_curls","17_C1D1_FFPE_curls","18_Baseline_FFPE_curls","19_C1D1_FFPE_curls","2_C1D1_FFPE_curls","20_Week_8_PD_FFPE_curls","21_Baseline_FFPE_curls","22_C1D1_FFPE_slides","23_Baseline_FFPE_curls","24_C1D1_FFPE_curls","25_Week_8_PD_FFPE_curls","26_Baseline_FFPE_curls","27_C1D1_FFPE_curls","29_Baseline_FFPE_slides","30_C1D1_FFPE_curls","34_Week_8_PD_FFPE_curls","35_C1D1_FFPE_curls","36_Week_8_PD_FFPE_curls","39_Week_8_PD_FFPE_curls","40_Baseline_FFPE_curls","41_C1D1_FFPE_curls","42_Baseline_FFPE_curls","43_C1D1_FFPE_slides","45_C1D1_FFPE_curls","47_Baseline_FFPE_curls","5_C1D1_FFPE_curls","6_Week_8_PD_FFPE_curls","7_Baseline_FFPE_curls","9_Week_8_PD_FFPE_slides","MD017-029_C1D1_Slides","MD017-051_Baseline_FFPE_curls"],["Responder","Responder","Responder","NonResponder","NonResponder","NonResponder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","NonResponder","NonResponder","NonResponder","NonResponder","Responder","Responder","Responder","NonResponder","NonResponder","NonResponder","NonResponder","NonResponder","Responder","Responder","Responder","Responder","Responder","Responder","Responder","NonResponder"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>Patient_ID<\/th>\n      <th>Timepoint<\/th>\n      <th>Tissue_Specific<\/th>\n      <th>Tissue_Broad<\/th>\n      <th>Subtype<\/th>\n      <th>Best_Resp<\/th>\n      <th>RECIST<\/th>\n      <th>CB_6mth<\/th>\n      <th>CB_6mth_yn<\/th>\n      <th>OR<\/th>\n      <th>irOR<\/th>\n      <th>n_therapies<\/th>\n      <th>PFS_Time<\/th>\n      <th>PFS_Event<\/th>\n      <th>OS_Time<\/th>\n      <th>OS_Event<\/th>\n      <th>exceptional_response<\/th>\n      <th>pubID<\/th>\n      <th>pub_timepoint<\/th>\n      <th>PersonalisID<\/th>\n      <th>CBR<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"className":"dt-right","targets":[12,13,14,15,16]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"Patient_ID","targets":1},{"name":"Timepoint","targets":2},{"name":"Tissue_Specific","targets":3},{"name":"Tissue_Broad","targets":4},{"name":"Subtype","targets":5},{"name":"Best_Resp","targets":6},{"name":"RECIST","targets":7},{"name":"CB_6mth","targets":8},{"name":"CB_6mth_yn","targets":9},{"name":"OR","targets":10},{"name":"irOR","targets":11},{"name":"n_therapies","targets":12},{"name":"PFS_Time","targets":13},{"name":"PFS_Event","targets":14},{"name":"OS_Time","targets":15},{"name":"OS_Event","targets":16},{"name":"exceptional_response","targets":17},{"name":"pubID","targets":18},{"name":"pub_timepoint","targets":19},{"name":"PersonalisID","targets":20},{"name":"CBR","targets":21}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="pca" class="section level1">
 <h1>PCA</h1>
+<div id="final-sample-numbers" class="section level2">
+<h2>Final sample numbers</h2>
+<pre><code>## [1] &quot;Sample Numbers&quot;</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th align="right">Baseline</th>
+<th align="right">C1D1</th>
+<th align="right">Week_8</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NonResponder</td>
+<td align="right">10</td>
+<td align="right">11</td>
+<td align="right">5</td>
+</tr>
+<tr class="even">
+<td>Responder</td>
+<td align="right">4</td>
+<td align="right">5</td>
+<td align="right">2</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td align="right">14</td>
+<td align="right">16</td>
+<td align="right">7</td>
+</tr>
+</tbody>
+</table>
+<pre><code>## The number of paired samples between  Baseline  and  C1D1 : 12 
+## The number of paired samples between  Baseline  and  Week_8 : 4 
+## The number of paired samples between  C1D1  and  Week_8 : 5</code></pre>
+<pre><code>## 
+##    Anterior_Chest_Wall    L_Abdominal_Omentum        L_Axillary_Node 
+##                      2                      2                      3 
+##               L_Breast           L_Chest_Wall         L_Hepatic_Mass 
+##                      2                      5                      4 
+##                  Liver                   Lung        Lung_Right_Lobe 
+##                      2                      1                      2 
+##  R_Anterior_Eighth_Rib        R_Axillary_Node               R_Breast 
+##                      1                      4                      2 
+##         R_Hepatic_Lobe           R_Iliac_Node R_Pelvic_Sidewall_Node 
+##                      4                      1                      1 
+## Superficial_Lymph_Node 
+##                      1</code></pre>
+<pre><code>## 
+##     Breast Chest_Wall      Liver       Lung Lymph_Node    Omentum 
+##          4          8         10          3         10          2</code></pre>
+<pre><code>## 
+## Baseline     C1D1   Week_8 
+##       14       16        7</code></pre>
+<pre><code>##             
+##              HR+ TNBC
+##   Breast       2    2
+##   Chest_Wall   3    5
+##   Liver        8    2
+##   Lung         0    3
+##   Lymph_Node   4    6
+##   Omentum      2    0</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th align="right">Baseline</th>
+<th align="right">C1D1</th>
+<th align="right">Week_8</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Breast</td>
+<td align="right">2</td>
+<td align="right">2</td>
+<td align="right">0</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>Chest_Wall</td>
+<td align="right">3</td>
+<td align="right">3</td>
+<td align="right">2</td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td>Liver</td>
+<td align="right">4</td>
+<td align="right">4</td>
+<td align="right">2</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td>Lung</td>
+<td align="right">0</td>
+<td align="right">2</td>
+<td align="right">1</td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td>Lymph_Node</td>
+<td align="right">4</td>
+<td align="right">4</td>
+<td align="right">2</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td>Omentum</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">0</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr class="header">
+<th></th>
+<th align="right">NonResponder</th>
+<th align="right">Responder</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Breast</td>
+<td align="right">4</td>
+<td align="right">0</td>
+<td>4</td>
+</tr>
+<tr class="even">
+<td>Chest_Wall</td>
+<td align="right">4</td>
+<td align="right">4</td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td>Liver</td>
+<td align="right">10</td>
+<td align="right">0</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td>Lung</td>
+<td align="right">1</td>
+<td align="right">2</td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td>Lymph_Node</td>
+<td align="right">5</td>
+<td align="right">5</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td>Omentum</td>
+<td align="right">2</td>
+<td align="right">0</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<pre><code>##       
+##        NonResponder Responder
+##   HR+            17         2
+##   TNBC            9         9</code></pre>
+<pre><code>##           
+##            NonResponder Responder
+##   Baseline           10         4
+##   C1D1               11         5
+##   Week_8              5         2</code></pre>
+<pre><code>##           
+##            HR+ TNBC
+##   Baseline   7    7
+##   C1D1       8    8
+##   Week_8     4    3</code></pre>
+<pre><code>## [1] &quot;Responders:&quot;</code></pre>
+<pre><code>##               Timepoint
+## RECIST         Baseline C1D1 Week_8
+##   NonResponder        0    0      0
+##   Responder           4    5      2</code></pre>
+<pre><code>## The number of paired samples between  Baseline  and  C1D1 : 4 
+## The number of paired samples between  Baseline  and  Week_8 : 1 
+## The number of paired samples between  C1D1  and  Week_8 : 2</code></pre>
+<pre><code>## [1] &quot;Non-responders:&quot;</code></pre>
+<pre><code>##               Timepoint
+## RECIST         Baseline C1D1 Week_8
+##   NonResponder       10   11      5
+##   Responder           0    0      0</code></pre>
+<pre><code>## The number of paired samples between  Baseline  and  C1D1 : 8 
+## The number of paired samples between  Baseline  and  Week_8 : 3 
+## The number of paired samples between  C1D1  and  Week_8 : 3</code></pre>
+</div>
 </div>
 <div id="time-de" class="section level1">
 <h1>Time DE</h1>
@@ -3223,8 +3422,8 @@ nonresponder.</p>
 </div>
 <div id="top-10-gene-table" class="section level2">
 <h2>top 10 gene table</h2>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-8f836166d559454ecd73" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-8f836166d559454ecd73">{"x":{"filter":"none","vertical":false,"data":[["FCER2","SHISA3","HMSD","TEPP","KIF19","IGF2BP3","KLRC2","KLRC4-KLRK1","TBX20","CHD5"],["C1orf105","ANGPTL5","FAM189A1","FLJ22184","HOXC13-AS","MPV17L","TMEM59L","ATP1A2","EYA2","PAPSS2"],["SPIC","CDH19","BEND4","POU4F1","CCL25","LOC283710","MIXL1","PLA2G2D","SYT15","FCRL2"],["ALK","VAX2","ALCAM","GHR","KCNS3","ADORA3","TREM2","SYPL2","FAM78B","ZNF91"],["IGFL1","LCN8","FCAMR","PLD5","CCL21","SERPINA9","P2RX2","PTPRQ","MUC4","SHISA3"],["COL11A1","PTPRD","MMP2","MMP11","CGREF1",null,null,null,null,null]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Baseline_up<\/th>\n      <th>Baseline_down<\/th>\n      <th>C1D1_up<\/th>\n      <th>C1D1_down<\/th>\n      <th>Week8_up<\/th>\n      <th>Week8_down<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"name":"Baseline_up","targets":0},{"name":"Baseline_down","targets":1},{"name":"C1D1_up","targets":2},{"name":"C1D1_down","targets":3},{"name":"Week8_up","targets":4},{"name":"Week8_down","targets":5}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-03839427d3b7c2e3fede" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-03839427d3b7c2e3fede">{"x":{"filter":"none","vertical":false,"data":[["FCER2","SHISA3","HMSD","TEPP","KIF19","IGF2BP3","KLRC2","KLRC4-KLRK1","TBX20","CHD5"],["C1orf105","ANGPTL5","FAM189A1","FLJ22184","HOXC13-AS","MPV17L","TMEM59L","ATP1A2","EYA2","PAPSS2"],["SPIC","CDH19","BEND4","POU4F1","CCL25","LOC283710","MIXL1","PLA2G2D","SYT15","FCRL2"],["ALK","VAX2","ALCAM","GHR","KCNS3","ADORA3","TREM2","SYPL2","FAM78B","ZNF91"],["IGFL1","LCN8","FCAMR","PLD5","CCL21","SERPINA9","P2RX2","PTPRQ","MUC4","SHISA3"],["COL11A1","PTPRD","MMP2","MMP11","CGREF1",null,null,null,null,null]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Baseline_up<\/th>\n      <th>Baseline_down<\/th>\n      <th>C1D1_up<\/th>\n      <th>C1D1_down<\/th>\n      <th>Week8_up<\/th>\n      <th>Week8_down<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"columnDefs":[{"name":"Baseline_up","targets":0},{"name":"Baseline_down","targets":1},{"name":"C1D1_up","targets":2},{"name":"C1D1_down","targets":3},{"name":"Week8_up","targets":4},{"name":"Week8_down","targets":5}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":[],"jsHooks":[]}</script>
 </div>
 </div>
 <div id="pam50-subtypes" class="section level1">
@@ -3281,10 +3480,10 @@ classifier.</p>
 ## [13] &quot;R-23_Week 8&quot;      &quot;R-4_Week 8&quot;       &quot;R-24_Baseline&quot;    &quot;R-24_Post Run-in&quot;
 ## [17] &quot;R-9_Baseline&quot;     &quot;R-7_Post Run-in&quot;  &quot;R-13_Post Run-in&quot; &quot;R-13_Week 8&quot;     
 ## [21] &quot;R-10_Baseline&quot;    &quot;R-10_Week 8&quot;      &quot;R-10_Post Run-in&quot; &quot;R-4_Baseline&quot;</code></pre>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-0d7db73d03839427d3b7" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-0d7db73d03839427d3b7">{"x":{"filter":"none","vertical":false,"data":[["R-5_Baseline","R-5_Post Run-in","R-14_Baseline","R-14_Post Run-in","R-6_Baseline","R-6_Post Run-in","R-6_Week 8","R-8_Baseline","R-8_Post Run-in","R-16_Post Run-in","R-16_Week 8","R-9_Post Run-in","R-15_Baseline"],["BL1","BL1","IM","IM","BL1","BL1","BL1","UNS","BL2","MSL","IM","UNS","LAR"],[0.607357696296748,0.680956183819704,0.692003465119972,0.646977453370319,0.555958017519891,0.556658868014031,0.485198303535991,null,0.301485059131534,0.157645235837561,0.609521397816321,null,0.607258325565291],[0,0,0,0,0,0,0,null,0,0,0,null,0]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>subtype<\/th>\n      <th>correlation<\/th>\n      <th>p.value<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":13,"columnDefs":[{"className":"dt-right","targets":[2,3]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"subtype","targets":1},{"name":"correlation","targets":2},{"name":"p.value","targets":3}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,13,25,50,100]}},"evals":[],"jsHooks":[]}</script>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-c2e3fede5c798441fdae" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-c2e3fede5c798441fdae">{"x":{"filter":"none","vertical":false,"data":[["R-5_Baseline","R-5_Post Run-in","R-14_Baseline","R-14_Post Run-in","R-6_Baseline","R-6_Post Run-in","R-6_Week 8","R-8_Baseline","R-8_Post Run-in","R-16_Post Run-in","R-16_Week 8","R-9_Post Run-in","R-15_Baseline"],[-0.371,0.116,0.6919999999999999,0.647,-0.445,-0.43,-0.08799999999999999,0.178,-0.054,0.027,0.61,-0.362,-0.629],[0.607,0.681,0.054,-0.099,0.556,0.5570000000000001,0.485,-0.033,-0.027,-0.169,-0.6,-0.712,-0.6],[-0.369,-0.546,-0.017,0.147,-0.261,-0.276,-0.247,-0.157,-0.221,0.158,0.526,0.502,0.296],[0.486,-0.021,-0.648,-0.622,0.503,0.474,0.227,-0.246,-0.06900000000000001,0.133,-0.578,0.14,0.464],[-0.26,-0.3,-0.234,-0.05,-0.205,-0.188,-0.108,0.165,0.301,-0.244,0.198,0.522,0.253],[-0.426,-0.358,0.1,0.115,-0.301,-0.301,-0.265,-0.113,-0.109,-0.18,0.167,0.453,0.607]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>IM<\/th>\n      <th>BL1<\/th>\n      <th>MSL<\/th>\n      <th>M<\/th>\n      <th>BL2<\/th>\n      <th>LAR<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":13,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"IM","targets":1},{"name":"BL1","targets":2},{"name":"MSL","targets":3},{"name":"M","targets":4},{"name":"BL2","targets":5},{"name":"LAR","targets":6}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,13,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-5c798441fdaea77ad32f" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-5c798441fdaea77ad32f">{"x":{"filter":"none","vertical":false,"data":[["R-5_Baseline","R-5_Post Run-in","R-14_Baseline","R-14_Post Run-in","R-6_Baseline","R-6_Post Run-in","R-6_Week 8","R-8_Baseline","R-8_Post Run-in","R-16_Post Run-in","R-16_Week 8","R-9_Post Run-in","R-15_Baseline"],["BL1","BL1","IM","IM","BL1","BL1","BL1","UNS","BL2","MSL","IM","UNS","LAR"],[0.607357696296748,0.680956183819704,0.692003465119972,0.646977453370319,0.555958017519891,0.556658868014031,0.485198303535991,null,0.301485059131534,0.157645235837561,0.609521397816321,null,0.607258325565291],[0,0,0,0,0,0,0,null,0,0,0,null,0]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>subtype<\/th>\n      <th>correlation<\/th>\n      <th>p.value<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":13,"columnDefs":[{"className":"dt-right","targets":[2,3]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"subtype","targets":1},{"name":"correlation","targets":2},{"name":"p.value","targets":3}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,13,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-6b82562872f5e3479f29" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-6b82562872f5e3479f29">{"x":{"filter":"none","vertical":false,"data":[["R-5_Baseline","R-5_Post Run-in","R-14_Baseline","R-14_Post Run-in","R-6_Baseline","R-6_Post Run-in","R-6_Week 8","R-8_Baseline","R-8_Post Run-in","R-16_Post Run-in","R-16_Week 8","R-9_Post Run-in","R-15_Baseline"],[-0.371,0.116,0.6919999999999999,0.647,-0.445,-0.43,-0.08799999999999999,0.178,-0.054,0.027,0.61,-0.362,-0.629],[0.607,0.681,0.054,-0.099,0.556,0.5570000000000001,0.485,-0.033,-0.027,-0.169,-0.6,-0.712,-0.6],[-0.369,-0.546,-0.017,0.147,-0.261,-0.276,-0.247,-0.157,-0.221,0.158,0.526,0.502,0.296],[0.486,-0.021,-0.648,-0.622,0.503,0.474,0.227,-0.246,-0.06900000000000001,0.133,-0.578,0.14,0.464],[-0.26,-0.3,-0.234,-0.05,-0.205,-0.188,-0.108,0.165,0.301,-0.244,0.198,0.522,0.253],[-0.426,-0.358,0.1,0.115,-0.301,-0.301,-0.265,-0.113,-0.109,-0.18,0.167,0.453,0.607]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>IM<\/th>\n      <th>BL1<\/th>\n      <th>MSL<\/th>\n      <th>M<\/th>\n      <th>BL2<\/th>\n      <th>LAR<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":13,"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6]},{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"IM","targets":1},{"name":"BL1","targets":2},{"name":"MSL","targets":3},{"name":"M","targets":4},{"name":"BL2","targets":5},{"name":"LAR","targets":6}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[10,13,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 <pre><code>## [1] 13  3</code></pre>
 </div>
 <div id="heatmap-1" class="section level2">

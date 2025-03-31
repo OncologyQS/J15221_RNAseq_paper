@@ -34,7 +34,7 @@ library(GSVA)
 
 set.seed(1234)
 
-rootDir = "C:/Users/ldanilo1/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+rootDir = "C:/Users/Luda/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
 #rootDir = "../../"
 
 source(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/J15221_RNAseq_paper/params_and_functions.r"))
@@ -71,8 +71,6 @@ load(file = paste0(rootDir,'Analysis/Data/RNAseq/j15221_rnaseq_annot_deidentifie
 
 dim(exprsDat)  #[1] 22955    37
 
-# output table
-datatable(sampAnnot)
 # select baseline samples
 baselineSamp = sampAnnot %>% filter(Timepoint == "Baseline") %>% rownames()
 
@@ -143,6 +141,53 @@ autoplot(pca_res_all, data = sampAnnot, colour = 'Tissue_Broad', size = 4) +
 autoplot(pca_res_base, data = sampAnnot[baselineSamp,], colour = 'Tissue_Broad', size = 4) +
   scale_color_manual(values = biopsyCol)+
   ggtitle("PCA of baseline samples")
+
+```
+## Final sample numbers
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+print("Sample Numbers")
+
+tab = sampAnnot %>% select(RECIST, Timepoint) %>% table()
+tab = rbind(tab, colSums(tab))
+kable(tab,"simple")
+write.csv(tab, paste0(rootDir,"Analysis/Data/RNAseq/2024-01-22_LN/samp_counts_by_response.csv"))
+# matrix for paired samples 
+mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "Patient_ID")
+
+table(sampAnnot$Tissue_Specific)
+
+table(sampAnnot$Tissue_Broad)
+
+table(sampAnnot$Time)
+
+table(sampAnnot$Tissue_Broad,sampAnnot$Subtype)
+
+tab = table(sampAnnot$Tissue_Broad,sampAnnot$Time)
+tab = cbind(tab, rowSums(tab))
+kable(tab,"simple")
+
+
+tab = table(sampAnnot$Tissue_Broad,sampAnnot$RECIST)
+tab = cbind(tab, rowSums(tab))
+kable(tab,"simple")
+
+table(sampAnnot$Subtype,sampAnnot$RECIST)
+
+table(sampAnnot$Time,sampAnnot$RECIST)
+
+table(sampAnnot$Time,sampAnnot$Subtype)
+
+print("Responders:")
+sampAnnot %>% filter(RECIST == "Responder") %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot%>% filter(RECIST == "Responder"), timepoint = "Timepoint", patID = "Patient_ID")
+
+print("Non-responders:")
+sampAnnot %>% filter(RECIST == "NonResponder") %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot%>% filter(RECIST == "NonResponder"), timepoint = "Timepoint", patID = "Patient_ID")
+
 
 ```
 
@@ -599,12 +644,12 @@ ht = plotHA_pam50_tnbc(sampAnnot_pam50, vstDat_plotting, genes[1:2], title = "Al
 
 ```{r echo=FALSE, fig.width = 8, message = FALSE, warning = FALSE}
 # read in scores
-scores = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_TME.xlsx"), sheetIndex = 2, startRow = 2, colNames = T, check.names = F)
+scores = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_15-19_TME.xlsx"), sheetIndex = 2, startRow = 2, colNames = T, check.names = F)
 rownames(scores) = scores[,1]
 scores = scores[,-1]
 
 # read in p-values
-res = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_TME.xlsx"), sheetIndex = 3, startRow = 2, colNames = T, check.names = F)
+res = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_15-19_TME.xlsx"), sheetIndex = 3, startRow = 2, colNames = T, check.names = F)
 rownames(res) = res[,1]
 res = res[,-1]
 sig_t1 = rownames(res)[which(res[,"pValue_T1_RvsNR"] < pThresh)]

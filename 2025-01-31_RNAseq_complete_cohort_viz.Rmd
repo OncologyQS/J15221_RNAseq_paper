@@ -34,10 +34,10 @@ library(GSVA)
 
 set.seed(1234)
 
-rootDir = "C:/Users/Luda/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
-#rootDir = "../../"
+#rootDir = "C:/Users/Luda/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
+rootDir = "../../../"
 
-source(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/J15221_RNAseq_paper/params_and_functions.r"))
+source("params_and_functions.r")
 # overwrite time colors
 timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
 
@@ -52,7 +52,7 @@ pThresh = 0.1
 
 ```
 
-Vizualization for the paper using saved results from the RNAseq analysis. The results that will go to the paper as supplementary tables and figures are saved in the Analysis/Data/RNAseq/2024-01-22_LN folder.
+Visualization for the paper using saved results from the RNAseq analysis. The results that will go to the paper as supplementary tables and figures are saved in the Analysis/Data/RNAseq/2024-01-22_LN folder.
 
 # R libraries and versions
 
@@ -125,24 +125,6 @@ vstDat_plotting <- vstDat_plotting[apply(vstDat_plotting,1,sd)>0,]
 
 ```
 
-# PCA
-
-```{r echo=FALSE, fig.width = 6, fig.height=5, message = FALSE, warning = FALSE, eval=FALSE}
-
-pca_res_all <- prcomp(t(vstDat_plotting), scale. = TRUE)
-dat = vstDat_plotting[, baselineSamp]
-dat <- dat[apply(dat,1,sd)>0,]
-pca_res_base <- prcomp(t(dat), scale. = TRUE)
-
-autoplot(pca_res_all, data = sampAnnot, colour = 'Tissue_Broad', size = 4) +
-  scale_color_manual(values = biopsyCol)+
-  ggtitle("PCA of all samples")
-
-autoplot(pca_res_base, data = sampAnnot[baselineSamp,], colour = 'Tissue_Broad', size = 4) +
-  scale_color_manual(values = biopsyCol)+
-  ggtitle("PCA of baseline samples")
-
-```
 ## Final sample numbers
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}
@@ -213,10 +195,6 @@ topDE_b_vs_c1 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5,
                        fileName = NULL,
                        main_title = "Baseline vs C1D1", n = 13)
 
-# topDE_b_vs_c1 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
-#                        fileName = NULL,
-#                        main_title = "Baseline vs C1D1", n = 13,
-#                        legendPosition = "right")
 
 ```
 
@@ -315,9 +293,9 @@ p = ggplot(data = pathRes_ns %>% filter(!is.na(NES)), aes(x = comparison, y = pa
     geom_point(size = 4) +
   #  scale_color_gradient(low = "red", high = "blue") +
     scale_colour_gradient2(low = "blue", high = "red") +
-  scale_x_discrete(labels = c("Baseline vs Week 8","After run-in vs Week 8")) +
+  scale_x_discrete(labels = c("Baseline vs Week 8","C1D1 vs Week 8")) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+
-  ggtitle("Halmark pathways") 
+  ggtitle("Hallmark pathways") 
 
 
   print(p)

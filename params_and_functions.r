@@ -345,7 +345,7 @@ plotHA = function(anno, dat, topDE = rownames(dat), title = "",
   # create a data.frame with annotation to be used at the top of a heatmap
   dfAnnot = data.frame(Timepoint=anno[,'Timepoint'],
                        Type = anno[,'Subtype'],
-                       Biopsy_site = anno[,'Tissue_Broad'],
+                       Biopsy_site = anno[,'biopsy_site'],
                        RECIST=anno[,'RECIST'],
                        Response = factor(anno[,"Best_Resp"], levels = c("CR","PR","SD","PD")))
   # use that data.frame to create HeatmapAnnotation object to be added to the heatmap
@@ -375,7 +375,7 @@ plotHA_pam50 = function(anno, dat, topDE = rownames(dat), title = "",
   # create a data.frame with annotation to be used at the top of a heatmap
   dfAnnot = data.frame(Timepoint=anno[,'Timepoint'],
                        Type = anno[,'Subtype'],
-                       Biopsy_site = anno[,'Tissue_Broad'],
+                       Biopsy_site = anno[,'biopsy_site'],
                        RECIST=anno[,'RECIST'],
                        Response = factor(anno[,"Best_Resp"], 
                                          levels = c("CR","PR","SD","PD")),
@@ -410,7 +410,7 @@ plotHA_pam50_tnbc = function(anno, dat, topDE = rownames(dat), title = "",
   # create a data.frame with annotation to be used at the top of a heatmap
   dfAnnot = data.frame(Timepoint=anno[,'Timepoint'],
                        Type = anno[,'Subtype'],
-                       Biopsy_site = anno[,'Tissue_Broad'],
+                       Biopsy_site = anno[,'biopsy_site'],
                        RECIST=anno[,'RECIST'],
                        Response = factor(anno[,"Best_Resp"], 
                                          levels = c("CR","PR","SD","PD")),
@@ -449,7 +449,7 @@ plotHA_cbr = function(anno, dat, topDE = rownames(dat),
   # create a data.frame with annotation to be used at the top of a heatmap
   dfAnnot = data.frame(Timepoint=anno[,'Timepoint'],
                        Type = anno[,'Subtype'],
-                       Biopsy_site = anno[,'Tissue_Broad'],
+                       Biopsy_site = anno[,'biopsy_site'],
                        RECIST=anno[,'RECIST'],
                        CBR = anno[,'CBR'],
                        Response = factor(anno[,"Best_Resp"], levels = c("CR","PR","SD","PD")))

@@ -1,0 +1,427 @@
+---
+title: "Visualization of RNAseq data analysis"
+author: "Ludmila Danilova & Joe Tandurella"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+---
+
+```{r setup, echo=FALSE, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library('readxl')
+library('ComplexHeatmap')
+library(ggplot2)
+library('EnhancedVolcano')
+library('DT')
+library(ggpubr)
+library(ggfortify)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(msigdbr)
+library(plyr)
+library(apeglm)
+library(xlsx)
+library(kableExtra)
+library(RColorBrewer)
+
+set.seed(1234)
+
+inputFolder = "input_data/"
+outputFolder = "output_data/"
+# check if it exists, if not, create
+if (!dir.exists(outputFolder)) {
+  dir.create(outputFolder)
+}
+
+source("params_and_functions.r")
+# overwrite time colors
+timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
+
+tnbcCol = c("BL1" = "yellow", "BL2" = "olivedrab3", "IM" = "burlywood4", "MSL" = "orange", "LAR" = "purple", "UNS" = "white", "NA" = "grey")
+
+# colors for gene set heatmaps to differ from gene expression heatmaps
+heatmapCol = colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdYlBu")))(100)
+
+# p-value threshold
+pThresh = 0.1
+
+```
+
+Visualization saved results from the RNAseq DE analysis. 
+
+# R libraries and versions
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+
+sessionInfo()
+
+```
+
+# Load data
+Load patient annotation from the repository of the previously published Nature Cancer paper: https://github.com/FertigLab/J15221_trial_paper.
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+patInfoLink = "https://raw.githubusercontent.com/FertigLab/J15221_trial_paper/refs/heads/main/input_tables/table_24patient_info.csv"
+
+patInfo = read.csv(patInfoLink, row.names = 1, stringsAsFactors = F)
+
+# read sample into and merge with patient info
+sampAnnot = read.csv(paste0(inputFolder,"diversity_neoantigen_table.csv"), row.names = 1)
+
+sampAnnot = cbind(sampAnnot, patInfo[sampAnnot$patientID, c("Best_Resp", "biopsy_site")])
+
+# add timepoint
+sampAnnot = sampAnnot %>% mutate(Timepoint = Time)
+
+# add pubID
+sampAnnot$pubID = sapply(strsplit(rownames(sampAnnot), "_"),
+                            getElement, 1)
+
+```
+
+## Sample numbers
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+print("Sample Numbers")
+
+tab = sampAnnot %>% select(RECIST, Timepoint) %>% table()
+tab = rbind(tab, colSums(tab))
+kable(tab,"simple")
+# matrix for paired samples 
+mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "patientID")
+
+table(sampAnnot$biopsy_site)
+
+table(sampAnnot$Time)
+
+table(sampAnnot$biopsy_site,sampAnnot$Subtype)
+
+tab = table(sampAnnot$biopsy_site,sampAnnot$Time)
+tab = cbind(tab, rowSums(tab))
+kable(tab,"simple")
+
+
+tab = table(sampAnnot$biopsy_site,sampAnnot$RECIST)
+tab = cbind(tab, rowSums(tab))
+kable(tab,"simple")
+
+table(sampAnnot$Subtype,sampAnnot$RECIST)
+
+table(sampAnnot$Time,sampAnnot$RECIST)
+
+table(sampAnnot$Time,sampAnnot$Subtype)
+
+print("Responders:")
+sampAnnot %>% filter(RECIST == "Responder") %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot%>% filter(RECIST == "Responder"), timepoint = "Timepoint", patID = "patientID")
+
+print("Non-responders:")
+sampAnnot %>% filter(RECIST == "Non-responder") %>% select(RECIST, Timepoint) %>% table()
+# matrix for paired samples 
+mat = printPairs(sampAnnot%>% filter(RECIST == "Non-responder"), timepoint = "Timepoint", patID = "patientID")
+
+
+```
+
+# Treatment DE
+
+Paired DE analysis between treatments/timepoints.
+
+## Baseline vs C1D1
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+# find patients with paired samples
+mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "patientID")
+pairedPat <- mat %>% filter(Baseline == 1 & C1D1 == 1) %>% rownames()
+# select paired samples and exclude a time point from comparison
+annot <- sampAnnot %>% filter(patientID %in% pairedPat & Timepoint != "Week_8")
+
+##read in results
+res = read.csv(paste0(inputFolder,"DE_treatment/Baseline_vs_C1D1_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_b_vs_c1 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "Baseline vs C1D1", n = 13)
+
+
+```
+
+### Heatmap
+```{r echo=FALSE, fig.width=7, fig.height = 6, message = FALSE, warning = FALSE}
+
+# read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_treatment/Baseline_vs_C1D1_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+
+ht = plotHA(annot, dat, rownames(dat), scale = F,
+       title = "Baseline vs C1D1",  
+       column_labels = annot$pubID, show_row_names = F,
+       heatmap_legend_param = list(direction = "horizontal"))
+
+
+```
+
+
+## C1D1 vs Week_8
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+# find patients with paired samples
+pairedPat <- mat %>% filter(Week_8 == 1 & C1D1 == 1) %>% rownames()
+# select paired samples and exclude a time point from comparison
+annot <- sampAnnot %>% filter(patientID %in% pairedPat & Timepoint != "Baseline")
+
+#datatable(annot)
+
+##DE by Time
+res = read.csv(paste0(inputFolder,"DE_treatment/Week_8_vs_C1D1_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_c_vs_w8 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "C1D1 vs Week 8", n = 15)
+
+```
+
+### Heatmap
+
+```{r echo=FALSE, fig.width=7, fig.height = 6, message = FALSE, warning = FALSE}
+# read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_treatment/C1D1_vs_Week8_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+plotHA(annot, dat, rownames(dat), title = "C1D1 vs Week 8",
+       scale = F, column_labels = annot$pubID, show_row_names = F,
+       heatmap_legend_param = list(direction = "horizontal"))
+
+```
+
+
+## Baseline vs Week_8
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+# find patients with paired samples
+pairedPat <- mat %>% filter(Week_8 == 1 & Baseline == 1) %>% rownames()
+# select paired samples and exclude a time point from comparison
+annot <- sampAnnot %>% filter(patientID %in% pairedPat & Timepoint != "C1D1")
+#datatable(annot)
+
+res = read.csv( paste0(inputFolder,"DE_treatment/Week_8_vs_Baseline_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_b_vs_w8 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "Baseline vs Week 8")
+
+```
+
+### Heatmap
+
+```{r echo=FALSE, fig.width=7,fig.height = 6, message = FALSE, warning = FALSE}
+# read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_treatment/Baseline_vs_Week8_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+
+plotHA(annot, dat, rownames(dat), 
+       title = "Baseline vs Week 8",scale = F,
+       column_labels = annot$pubID, show_row_names = F,
+       heatmap_legend_param = list(direction = "horizontal"))
+
+```
+
+## Hallmark Pathway analysis
+### dot plot
+
+```{r echo=FALSE, message = FALSE, warning = FALSE,fig.height=7, fig.width=5}
+# load pathways from paired analysis
+c1d1_week8_h = read.csv(paste0(inputFolder,"DE_treatment/Week_8_vs_C1D1_Hallmark.csv"))
+c1d1_week8_h_sig = c1d1_week8_h %>% filter(padj < 0.05)
+
+b_week8_h = read.csv(paste0(inputFolder,"DE_treatment/Week_8_vs_Baseline_Hallmark.csv"))
+b_week8_h_sig = b_week8_h %>% filter(padj < 0.05)
+
+# merge pathwyay analysis results for plotting
+pathRes = rbind(cbind(comparison = rep("Baseline_vs_Week8",nrow(b_week8_h)),b_week8_h),
+  cbind(comparison = rep("C1D1_vs_Week8",nrow(c1d1_week8_h)),c1d1_week8_h))
+
+ # make NES for not significant pathways as NA
+pathRes_ns = pathRes %>% mutate(NES, NES = ifelse(padj >0.05, NA, NES))
+# remove "HALLMARK_" from all pathways
+pathRes_ns$pathway = gsub("HALLMARK_","",pathRes_ns$pathway)
+
+# plot: dot plot
+p = ggplot(data = pathRes_ns %>% filter(!is.na(NES)), aes(x = comparison, y = pathway, color = NES)) + 
+    geom_point(size = 4) +
+  #  scale_color_gradient(low = "red", high = "blue") +
+    scale_colour_gradient2(low = "blue", high = "red") +
+  scale_x_discrete(labels = c("Baseline vs Week 8","C1D1 vs Week 8")) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  ggtitle("Hallmark pathways") 
+
+
+  print(p)
+
+```
+
+
+# RECIST DE
+
+Results of DE analysis between responders vs non-responders at each timepoint.
+
+## Baseline
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
+table(annot$RECIST)
+
+res = read.csv(paste0(inputFolder,"DE_RECIST/Baseline_RespondervNonResponder_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_b = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "Baseline. Non-responder vs Responder")
+
+# create a table with top 10 or less up- and down-regulated genes for every comparison
+top10Genes = matrix(NA, nrow = 10, ncol = 6)
+colnames(top10Genes) = c("Baseline_up","Baseline_down","C1D1_up","C1D1_down",
+                         "Week8_up","Week8_down")
+# add top gene from this comparison
+sig = res[topDE_b,"log2FoldChange"] >0
+top10Genes[,"Baseline_up"] = topDE_b[sig][1:10]
+top10Genes[,"Baseline_down"] = topDE_b[!sig][1:10]
+                                          
+```
+
+### top DE genes
+
+```{r echo=FALSE, fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+##read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_RECIST/Baseline_R_vs_NR_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+annot = sampAnnot[sampAnnot$Timepoint=="Baseline",]
+##use all samples including lymph nodes
+plotHA(annot, dat, rownames(dat), title = "Baseline",scale = F,
+       column_labels = annot$pubID, show_row_names = F,
+      heatmap_legend_param = list(direction = "horizontal"))
+
+```
+
+### top Hallmark pathways
+
+Pathway scores for significantly enriched pathways derived for each sample using GSVA
+
+```{r echo=FALSE, fig.width=8, fig.heigh = 6, message = FALSE, warning = FALSE, eval = TRUE}
+# read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_RECIST/Baseline_R_vs_NR_pathways_heatmap.csv"), row.names = 1, check.names = F)
+
+annot =sampAnnot %>% filter(Timepoint == "Baseline") 
+# remove "HALLMARK_" from all pathway names to be used as row names
+p = gsub("HALLMARK_","",rownames(dat))
+plotHA(annot, dat, scale = F,
+           title = "Hallmark pathways. Baseline. GSVA scores", col = heatmapCol,column_labels = annot$pubID,
+           row_labels = p)
+
+
+```
+
+## C1D1
+
+```{r echo=FALSE, fig.width = 6, fig.height=6,message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+table(annot$RECIST)
+
+res = read.csv(paste0(inputFolder,"DE_RECIST/C1D1_RespondervNonResponder_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_c = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "C1D1. Non-responder vs Responder")
+# add top gene from this comparison
+sig = res[topDE_c,"log2FoldChange"] >0
+top10Genes[,"C1D1_up"] = topDE_c[sig][1:10]
+top10Genes[,"C1D1_down"] = topDE_c[!sig][1:10]
+
+```
+
+### Heatmap 
+
+```{r echo=FALSE,fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+##read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_RECIST/C1D1_R_vs_NR_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+plotHA(annot, dat, rownames(dat),title = "C1D1",scale = F,
+       column_labels = annot$pubID, show_row_names = F,
+       heatmap_legend_param = list(direction = "horizontal"))
+
+```
+
+## Week 8
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="Week_8",]
+table(annot$RECIST)
+
+res = read.csv(paste0(inputFolder,"DE_RECIST/Week8_RespondervNonResponder_DEGenes.csv"), row.names = 1)
+# output all DE results  
+#datatable(data.frame(res))
+# plots volcano plot and saves top DE genes
+topDE_w8 = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "Week 8. Non-responder vs Responder", n = 25)
+# add top gene from this comparison
+sig = res[topDE_w8,"log2FoldChange"] >0
+top10Genes[,"Week8_up"] = topDE_w8[sig][1:10]
+top10Genes[,"Week8_down"] = topDE_w8[!sig][1:10]
+
+
+```
+
+### Heatmap
+
+```{r echo=FALSE, fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+##read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_RECIST/Week8_R_vs_NR_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+annot <- sampAnnot[sampAnnot$Timepoint=="Week_8",]
+plotHA(annot, dat, rownames(dat), title = "Week 8",scale = F,
+       column_labels = annot$pubID, show_row_names = F,
+       heatmap_legend_param = list(direction = "horizontal"))
+
+
+```
+
+
+## Top 10 gene table
+
+```{r echo=FALSE, fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+datatable(top10Genes)
+write.csv(top10Genes,paste0(outputFolder,"top10Genes.csv"), row.names = F)
+
+```
+
+

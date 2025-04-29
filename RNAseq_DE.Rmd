@@ -40,21 +40,10 @@ if (!dir.exists(outputFolder)) {
 }
 
 source("params_and_functions.r")
-# overwrite time colors
-timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
-
-tnbcCol = c("BL1" = "yellow", "BL2" = "olivedrab3", "IM" = "burlywood4", "MSL" = "orange", "LAR" = "purple", "UNS" = "white", "NA" = "grey")
-
-# colors for gene set heatmaps to differ from gene expression heatmaps
-heatmapCol = colorRampPalette(rev(brewer.pal(n = 7, name =
-  "RdYlBu")))(100)
-
-# p-value threshold
-pThresh = 0.1
 
 ```
 
-Visualization saved results from the RNAseq DE analysis. 
+Visualization of saved results from the RNAseq DE analysis. 
 
 # R libraries and versions
 
@@ -97,37 +86,26 @@ kable(tab,"simple")
 # matrix for paired samples 
 mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "patientID")
 
-table(sampAnnot$biopsy_site)
+#table(sampAnnot$biopsy_site)
 
-table(sampAnnot$Time)
+#table(sampAnnot$Time)
 
-table(sampAnnot$biopsy_site,sampAnnot$Subtype)
+#table(sampAnnot$biopsy_site,sampAnnot$Subtype)
 
-tab = table(sampAnnot$biopsy_site,sampAnnot$Time)
-tab = cbind(tab, rowSums(tab))
-kable(tab,"simple")
+# tab = table(sampAnnot$biopsy_site,sampAnnot$Time)
+# tab = cbind(tab, rowSums(tab))
+# kable(tab,"simple")
 
 
-tab = table(sampAnnot$biopsy_site,sampAnnot$RECIST)
-tab = cbind(tab, rowSums(tab))
-kable(tab,"simple")
+# tab = table(sampAnnot$biopsy_site,sampAnnot$RECIST)
+# tab = cbind(tab, rowSums(tab))
+# kable(tab,"simple")
 
 table(sampAnnot$Subtype,sampAnnot$RECIST)
 
 table(sampAnnot$Time,sampAnnot$RECIST)
 
 table(sampAnnot$Time,sampAnnot$Subtype)
-
-print("Responders:")
-sampAnnot %>% filter(RECIST == "Responder") %>% select(RECIST, Timepoint) %>% table()
-# matrix for paired samples 
-mat = printPairs(sampAnnot%>% filter(RECIST == "Responder"), timepoint = "Timepoint", patID = "patientID")
-
-print("Non-responders:")
-sampAnnot %>% filter(RECIST == "Non-responder") %>% select(RECIST, Timepoint) %>% table()
-# matrix for paired samples 
-mat = printPairs(sampAnnot%>% filter(RECIST == "Non-responder"), timepoint = "Timepoint", patID = "patientID")
-
 
 ```
 
@@ -425,3 +403,78 @@ write.csv(top10Genes,paste0(outputFolder,"top10Genes.csv"), row.names = F)
 ```
 
 
+# CBR DE
+
+Results of DE analysis between CBR responders vs non-responders at each timepoint.
+
+## CBR numbers
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+# add CBR
+sampAnnot$CBR = factor(sampAnnot$Best_Resp, levels = c("PD","SD","CR","PR"), labels = c("Non-responder","Responder","Responder","Responder"))
+
+table(sampAnnot$Timepoint,sampAnnot$CBR)
+
+```
+
+## Baseline
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
+table(annot$RECIST)
+
+res = read.csv(paste0(inputFolder,"DE_CBR/Baseline_CBR_RespondervNonResponder_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_b = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "Baseline. CBR Non-responder vs Responder")
+
+```
+### Heatmap
+
+```{r echo=FALSE, fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+##read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_CBR/Baseline_CBR_R_vs_NR_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
+plotHA(annot, dat, rownames(dat), title = "Baseline",scale = F,
+       column_labels = annot$pubID, show_row_names = T)
+
+
+```
+
+## C1D1
+
+```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+##Subset samples to be included
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+table(annot$RECIST)
+
+res = read.csv(paste0(inputFolder,"DE_CBR/C1D1_CBR_RespondervNonResponder_DEGenes.csv"), row.names = 1)
+
+# output all DE results  
+datatable(data.frame(res))
+
+# plots volcano plot and saves top DE genes
+topDE_b = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5, 
+                       fileName = NULL,
+                       main_title = "C1D1. CBR Non-responder vs Responder")
+
+```
+### Heatmap
+
+```{r echo=FALSE, fig.width = 7, fig.height = 6, message = FALSE, warning = FALSE}
+##read in data for heatmap
+dat = read.csv(paste0(inputFolder,"DE_CBR/C1D1_CBR_R_vs_NR_DEGenes_heatmap.csv"), row.names = 1, check.names = F)
+
+annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
+plotHA(annot, dat, rownames(dat), title = "C1D1",scale = F,
+       column_labels = annot$pubID, show_row_names = T)
+
+
+```

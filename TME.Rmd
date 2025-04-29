@@ -37,16 +37,12 @@ set.seed(1234)
 
 inputFolder = "input_data/"
 outputFolder = "output_data/"
+# check if it exists, if not, create
+if (!dir.exists(outputFolder)) {
+  dir.create(outputFolder)
+}
 
 source("params_and_functions.r")
-# overwrite time colors
-timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
-
-tnbcCol = c("BL1" = "yellow", "BL2" = "olivedrab3", "IM" = "burlywood4", "MSL" = "orange", "LAR" = "purple", "UNS" = "white", "NA" = "grey")
-
-# colors for gene set heatmaps to differ from gene expression heatmaps
-heatmapCol = colorRampPalette(rev(brewer.pal(n = 7, name =
-  "RdYlBu")))(100)
 
 # p-value threshold
 pThresh = 0.1
@@ -82,6 +78,20 @@ sampAnnot$Timepoint = sapply(strsplit(rownames(sampAnnot), "_"),
 
 ```
 
+# CIBERSORTx
+
+The analysis was performed using the CIBERSORTx web portal (https://cibersortx.stanford.edu/) with the LM22 signature matrix. The results were downloaded and processed in R.
+
+
+```{r echo=FALSE, fig.width = 8, message = FALSE, warning = FALSE}
+#=============================== 
+# read in CIBERSORT proportions
+ciberRes = read.csv(file = paste0(rootDir,'Analysis/Data/cibersort_results/CIBERSORTx_Job25_Results.csv'), row.names = 1)
+
+# subset to samples that we agreed to use for further analysis
+ciberRes = ciberRes[sampAnnot$PersonalisID,1:22]
+
+```
 # TME gene sets
 ## Significant sets in responders vs non-responder at C1D1
 

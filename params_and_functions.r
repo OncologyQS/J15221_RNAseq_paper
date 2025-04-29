@@ -6,29 +6,22 @@ ramp <- colorRamp(c("#00BFC4", '#FFFFFF', "#F8766D"))
 redBlue = rgb( ramp(seq(0, 1, length = 21)), max = 255)
 # response colors
 # labels for time points
-timeLab  = c("Baseline", "After Run-in", "Week 8")
+timeLab  = c("Baseline", "C1D1", "Week 8")
 
 # set colors
 recistCol = c("Non-responder" = "red","Responder" = "blue", "NonResponder" = "red")
 cbrCol = c("CR,PR,SD" = "blue","PD" = "red")
 respCol = c("CR"="blue", "PR" = "#00BFC4", "SD" = 'yellow', "PD" = "red")
 subtypeCol = c("HR+" = "red", "TNBC" = "blue")
-timeCol = c(setNames(c("black", 'grey45', 'grey75'), timeLab), C1D1 = 'grey45', "Week_8" = 'grey75', "Post Run-in" = 'grey45')
 biopsyCol = c(Breast = 'pink', Chest_Wall = 'grey', Liver = 'gold4', "Lung" = 'blue', Lymph_Node = 'cyan', Omentum = "brown")
 
-#Gather Gene lists from Evanthia and Edgar -- human
-G_MDSC <- c("ITGAM", "CD15", "FUT4", "CEACAM8")
-M_MDSC <- c("CD3",  "FCGR3A", "CD19", "MS4A1", "NCAM1", "ITGAM", "CD14", 
-            "FUT4", "HLA-DR", "CD33", "S100A8", "S100A9", "S100A12", "VCAN")
-Tumor_Associated_Neutrophil <- c("PTPRC", "ITGAM", "FUT4", "CEACAM1", "MPO", "ARG1", "ICAM1", "CD14", "HLA-DRB1")
-Monocyte <- c("CD14", "FCGR3A", "FCGR1A", "CCR2", "CX3CR1")
-cDC1 <- c("HLA-DRB1", "THBD", "XCR1", "CLEC9A", "LY75")
-cDC2 <- c("ITGAX", "HLA-DRB1", "CD1C", "ITGAM", "SIRPA", "CD1A")
-pDC <- c("IL3RA", "CLEC4C", "NRP1", "CXCR3", "CCR2", "LILRB4")
-DCreg <- c("C1QA", "CATC", "GILZ", "STAB1")
+timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
 
-Evanthia_CellTypes <- list("G_MDSC"=G_MDSC,"M_MDSC"=M_MDSC,"Tumor_Associated_Neutrophil"=Tumor_Associated_Neutrophil,"Monocyte"=Monocyte,"cDC1"=cDC1,"cDC2"=cDC2,"pDC"=pDC,"DCreg"=DCreg)
+tnbcCol = c("BL1" = "yellow", "BL2" = "olivedrab3", "IM" = "burlywood4", "MSL" = "orange", "LAR" = "purple", "UNS" = "white", "NA" = "grey")
 
+# colors for gene set heatmaps to differ from gene expression heatmaps
+heatmapCol = colorRampPalette(rev(brewer.pal(n = 7, name =
+                                               "RdYlBu")))(100)
 
 ##Create All Facet for plotting
 CreateAllFacet <- function(df, col){

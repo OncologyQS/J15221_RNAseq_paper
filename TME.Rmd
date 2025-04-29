@@ -49,8 +49,6 @@ pThresh = 0.1
 
 ```
 
-Visualization for the paper using saved results from the RNAseq analysis. 
-
 # R libraries and versions
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}

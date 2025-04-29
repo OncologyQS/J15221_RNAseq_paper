@@ -1,10 +1,11 @@
 ---
-title: "Visualization of RNAseq data analysis"
+title: "Visualization of TME analysis"
 author: "Ludmila Danilova & Joe Tandurella"
 date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
+    toc_float: true
     theme: united
 ---
 
@@ -12,10 +13,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 library('readxl')
-library('DESeq2')
 library('ComplexHeatmap')
 library(ggplot2)
-library('EnhancedVolcano')
 library('DT')
 library(ggpubr)
 library(ggfortify)
@@ -23,15 +22,11 @@ library(tidyverse)
 library(dplyr)
 library(tidyr)
 library(data.table)
-library(msigdbr)
 library(plyr)
-library(apeglm)
 library(xlsx)
 library(kableExtra)
 library(pam50)
 library(RColorBrewer)
-library(GSVA)
-library(readr)
 
 set.seed(1234)
 
@@ -41,6 +36,7 @@ outputFolder = "output_data/"
 if (!dir.exists(outputFolder)) {
   dir.create(outputFolder)
 }
+# load all necessary functions and settings
 
 source("params_and_functions.r")
 
@@ -58,7 +54,7 @@ sessionInfo()
 ```
 
 # Load data
-Load sample annotation from the Nature Cancer paper repo (https://github.com/FertigLab/J15221_trial_paper).
+Load patient information from the Nature Cancer paper repo (https://github.com/FertigLab/J15221_trial_paper).
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}
 patInfoLink = "https://raw.githubusercontent.com/FertigLab/J15221_trial_paper/refs/heads/main/input_tables/table_24patient_info.csv"
@@ -71,12 +67,11 @@ sampAnnot = read.csv(paste0(inputFolder,"diversity_neoantigen_table.csv"), row.n
 sampAnnot = cbind(sampAnnot, patInfo[sampAnnot$patientID, c("Best_Resp", "biopsy_site")])
 
 # add timepoint
-sampAnnot$Timepoint = sapply(strsplit(rownames(sampAnnot), "_"),
-                            getElement, 2)
+sampAnnot = sampAnnot %>% mutate(Timepoint = Time)
 
 ```
 
-# CIBERSORTx
+# CIBERSORTx proportions
 
 The analysis was performed using the CIBERSORTx web portal (https://cibersortx.stanford.edu/) with the LM22 signature matrix. The results were downloaded and processed in R.
 
@@ -84,48 +79,185 @@ The analysis was performed using the CIBERSORTx web portal (https://cibersortx.s
 ```{r echo=FALSE, fig.width = 8, message = FALSE, warning = FALSE}
 #=============================== 
 # read in CIBERSORT proportions
-ciberRes = read.csv(file = paste0(rootDir,'Analysis/Data/cibersort_results/CIBERSORTx_Job25_Results.csv'), row.names = 1)
+ciberRes = read.csv(file = paste0(inputFolder,'TME/CIBERSORTx_proportions.csv'), row.names = 1)
 
 # subset to samples that we agreed to use for further analysis
-ciberRes = ciberRes[sampAnnot$PersonalisID,1:22]
+ciberRes = ciberRes[rownames(sampAnnot),1:22]
 
 ```
+
+## Heatmap
+
+```{r echo=FALSE,  fig.width = 10, message = FALSE, warning = FALSE}
+#===============
+# make heatmaps
+
+# find cell types that don't show a lot of variation
+ciberSD1 = apply(ciberRes,2,sd)
+cellTypes = names(ciberSD1)[which(ciberSD1 > 0.01)]
+
+  #=====================
+  # plot only cell type with some variation
+  dat = t(ciberRes[,cellTypes])
+  annot = data.frame(Response = factor(sampAnnot[,"Best_Resp"], levels = c("CR","PR","SD","PD")),
+                     RECIST=sampAnnot[,'RECIST'],
+                    Biopsy_site = sampAnnot[,'biopsy_site'],
+                       Type = sampAnnot[,'Subtype'],
+                          Timepoint=sampAnnot[,'Timepoint']
+                       )
+  rownames(annot) = rownames(sampAnnot)
+
+  annot_color = list(Timepoint = timeCol, Type = subtypeCol, RECIST = recistCol, Biopsy_site = biopsyCol, Response = respCol)
+  
+# all samples
+#  pheatmap(dat,annotation_col = annot, main = 'CIBERSORT. All samples', scale = "none", annotation_colors = annot_color, labels_col = sampAnnot[colnames(dat),"pubID"])
+  
+# ordered by patient and time
+  ord = rownames(sampAnnot)[order(sampAnnot$RECIST,sampAnnot$patientID,sampAnnot$Timepoint)]
+  pheatmap(dat[,ord],annotation_col = annot[ord,], main = 'CIBERSORT. All samples', 
+           scale = "none", annotation_colors = annot_color, 
+           labels_col = sampAnnot[ord,"patientID"], cluster_cols = FALSE, 
+           gaps_col = c(3,5,7,8,10,11,13,14,16,18,21,22,24,26,28,30,32,35))
+
+```
+
+## p-values
+
+```{r echo=FALSE, fig.width= 10, warning=FALSE, message=FALSE}
+
+# cibersort proportions
+df = data.frame(ciberRes, 
+                sampAnnot[rownames(ciberRes), ],
+                check.names = F)
+  # calculate p-values
+#  res_ciber = t(sapply(colnames(ciberRes), getWilcox, df))
+  res_ciber = t(sapply(colnames(ciberRes), getWilcoxDelta, df))
+  
+  res_ciber = round(res_ciber,3)
+# table with p-values
+  datatable(res_ciber)
+  
+  # save the tables with p-values for the paper supplement
+  write.csv(res_ciber, file = paste0(outputFolder,'cibersort_pvalues.csv'))
+
+
+```
+
+## Boxplots responders vs non-responders
+
+```{r echo=FALSE, fig.width=10}
+# get significant by time point
+sig = rownames(res_ciber)[which(res_ciber[,"pValue_B_RvsNR"] < 0.05)]
+
+##RECIST (Responders vs. Nonresponders)
+for( i in sig)
+{
+df = data.frame(cell_proportion = as.numeric(ciberRes[,i]), 
+                sampAnnot[rownames(ciberRes), ],
+               check.names = F)
+
+p= ggplot(df, aes(x=RECIST, y=cell_proportion)) + 
+  geom_boxplot() + 
+  ylab(i) + 
+  stat_compare_means() + 
+  geom_point() + 
+#  scale_y_log10()+
+#  scale_color_manual(values = subtypeCol) +
+  facet_wrap("Timepoint")+ 
+  theme_bw()
+
+print(p)
+}
+
+```
+
+## Boxplots for Monocytes
+
+Plot treatment effect between responders and non-responder (after entinostat)
+
+```{r echo=FALSE, fig.width=4, fig.height=4, warning=FALSE, message=FALSE}
+df = data.frame(Monocytes = as.numeric(ciberRes[,"Monocytes"]), 
+                sampAnnot[rownames(ciberRes), ],
+                check.names = F)
+
+# per patient matrix with time point columns
+mat <- data.frame(matrix(nrow = length(unique(df$patientID)), ncol = 3, 
+                         dimnames = list(unique(df$patientID),
+                                         levels(factor(df$Timepoint)))),
+                  check.names = F)
+# iterate time and fill in matrix
+for(i in levels(factor(df$Timepoint)))
+  {
+    d1 = df %>% filter(Timepoint == i)
+    mat[d1$patientID, i] = d1[,"Monocytes"]
+  }
+# add response
+m = df %>% select(patientID,  RECIST) %>% filter(!(duplicated(patientID)))
+rownames(m) = m$patientID
+mat$RECIST = m[rownames(mat),"RECIST"]
+# create treatment effect (calculate delta)
+# substract baseline from post run-in and week 8 
+mat$delta_T1_B =  mat[,2]-mat[,1]
+
+# delta for responders vs non-responders 
+ggplot(mat, aes(x=RECIST, y=delta_T1_B)) + 
+  geom_boxplot() + 
+  ylab("delta(C1D1 - Baseline)") + 
+  ggtitle("Entinostat treatment effect") +
+  stat_compare_means() + 
+  geom_point(size = 2) + 
+  theme_bw()
+
+```
+
 # TME gene sets
-## Significant sets in responders vs non-responder at C1D1
+## p-values
 
 ```{r echo=FALSE, fig.width = 8, message = FALSE, warning = FALSE}
 # read in scores
-scores = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_15-19_TME.xlsx"), sheetIndex = 2, startRow = 2, colNames = T, check.names = F)
-rownames(scores) = scores[,1]
-scores = scores[,-1]
+scores = read.csv(paste0(inputFolder,'TME/TME_gene_sets_scores.csv'), row.names = 1, check.names = F)
 
-# read in p-values
-res = read.xlsx(paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/Supplementary_tables_15-19_TME.xlsx"), sheetIndex = 3, startRow = 2, colNames = T, check.names = F)
-rownames(res) = res[,1]
-res = res[,-1]
-sig_t1 = rownames(res)[which(res[,"pValue_T1_RvsNR"] < pThresh)]
-
-
-# order by patient and time
-ord_all = rownames(sampAnnot)[order(sampAnnot$RECIST,sampAnnot$Best_Resp, sampAnnot$Subtype, sampAnnot$pubID,sampAnnot$Timepoint)]
-# C1D1 only
-ord = grep("Post Run-in",ord_all, value = T)
-# heatmap
-plotHA(sampAnnot[ord,],scores[sig_t1,ord], scale = F, title = "TME gene sets. C1D1", col = heatmapCol, column_order = ord, column_labels  = gsub("_Post Run-in","",ord))
+df = data.frame(t(scores), 
+              sampAnnot[colnames(scores), c("RECIST","Subtype","patientID","Time")],
+              check.names = F)
+  # calculate p-values
+  res = t(sapply(rownames(scores), getWilcoxDelta, df))
+  
+  res = round(res,3)
+# table with p-values
+  datatable(res)
+  
+write.csv(res, file = paste0(outputFolder,"TME_gene_sets_p-values.csv"), quote = F)
 
 ```
 
-## Significant sets in responders vs non-responder at Week 8
+## Significant sets in responders vs non-responder
 
-```{r echo=FALSE, fig.width=8, eval=TRUE}
+### at C1D1
+
+```{r echo=FALSE, fig.width = 8, message = FALSE, warning = FALSE}
+sig_t1 = rownames(res)[which(res[,"pValue_T1_RvsNR"] < pThresh)]
+
+# order by patient and time
+ord_all = rownames(sampAnnot)[order(sampAnnot$RECIST,sampAnnot$Best_Resp, sampAnnot$Subtype, sampAnnot$patientID,sampAnnot$Timepoint)]
+# C1D1 only
+ord = grep("C1D1",ord_all, value = T)
+# heatmap
+plotHA(sampAnnot[ord,],scores[sig_t1,ord], scale = F, title = "TME gene sets. C1D1", col = heatmapCol, column_order = ord, column_labels  = gsub("_C1D1","",ord))
+
+```
+
+### at Week 8
+
+```{r echo=FALSE, fig.width=8, eval=TRUE, warning=FALSE, message=FALSE}
 # get significant by time point
 sig_t2 = rownames(res)[which(res[,"pValue_T2_RvsNR"] < pThresh)]
 
 
 # Week 8 only
-ord = grep("Week 8",ord_all, value = T)
+ord = grep("Week_8",ord_all, value = T)
 plotHA(sampAnnot[ord,],scores[sig_t2,ord], scale = F, title = "TME gene sets. Week 8", col = heatmapCol, column_order = ord,
-          column_labels  = gsub("_Week 8","",ord) )
+          column_labels  = gsub("_Week_8","",ord) )
 
 
 ```

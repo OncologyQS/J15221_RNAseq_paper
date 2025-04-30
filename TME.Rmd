@@ -45,14 +45,6 @@ pThresh = 0.1
 
 ```
 
-# R libraries and versions
-
-```{r echo=FALSE, message = FALSE, warning = FALSE}
-
-sessionInfo()
-
-```
-
 # Load data
 Load patient information from the Nature Cancer paper repo (https://github.com/FertigLab/J15221_trial_paper).
 
@@ -262,3 +254,10 @@ plotHA(sampAnnot[ord,],scores[sig_t2,ord], scale = F, title = "TME gene sets. We
 
 ```
 
+# R libraries and versions
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+
+sessionInfo()
+
+```

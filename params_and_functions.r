@@ -538,8 +538,8 @@ fix_sample_names = function(s){
   # trim white spaces
   s = trimws(s)
   s = gsub("R.","R-",s, fixed = T)
-  s = gsub("Post.Run.in","Post Run-in",s, fixed = T)
-  s = gsub("Week.8","Week 8",s, fixed = T)
+  s = gsub("Post.Run.in","C1D1",s, fixed = T)
+  s = gsub("Week.8","Week_8",s, fixed = T)
   return(s)
 }
 # Custom sorting function using stringr

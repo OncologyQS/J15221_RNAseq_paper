@@ -41,13 +41,6 @@ source("params_and_functions.r")
 
 Visualization of saved results from the RNAseq DE analysis. 
 
-# R libraries and versions
-
-```{r echo=FALSE, message = FALSE, warning = FALSE}
-
-sessionInfo()
-
-```
 
 # Load data
 Load patient annotation from the repository of the previously published Nature Cancer paper: https://github.com/FertigLab/J15221_trial_paper.
@@ -74,8 +67,7 @@ sampAnnot$pubID = sapply(strsplit(rownames(sampAnnot), "_"),
 ## Sample numbers
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}
-print("Sample Numbers")
-
+# the number of responders and non-responders at each timepoint
 tab = sampAnnot %>% select(RECIST, Timepoint) %>% table()
 tab = rbind(tab, colSums(tab))
 kable(tab,"simple")
@@ -99,9 +91,9 @@ mat = printPairs(sampAnnot, timepoint = "Timepoint", patID = "patientID")
 
 table(sampAnnot$Subtype,sampAnnot$RECIST)
 
-table(sampAnnot$Time,sampAnnot$RECIST)
+#table(sampAnnot$Time,sampAnnot$RECIST)
 
-table(sampAnnot$Time,sampAnnot$Subtype)
+#table(sampAnnot$Time,sampAnnot$Subtype)
 
 ```
 
@@ -310,10 +302,20 @@ dat = read.csv(paste0(inputFolder,"DE_RECIST/Baseline_R_vs_NR_pathways_heatmap.c
 annot =sampAnnot %>% filter(Timepoint == "Baseline") 
 # remove "HALLMARK_" from all pathway names to be used as row names
 p = gsub("HALLMARK_","",rownames(dat))
-plotHA(annot, dat, scale = F,
-           title = "Hallmark pathways. Baseline. GSVA scores", col = heatmapCol,column_labels = annot$pubID,
-           row_labels = p)
+#plotHA(annot, dat, scale = F,
+#           title = "Hallmark pathways. Baseline. GSVA scores", col = heatmapCol,column_labels = annot$pubID,
+#          row_labels = p)
 
+# order by patient and time
+ord_all = rownames(sampAnnot)[order(sampAnnot$RECIST,sampAnnot$Best_Resp, sampAnnot$Subtype, sampAnnot$patientID,sampAnnot$Timepoint)]
+# Baseline only
+ord = grep("Baseline",ord_all, value = T)
+
+# heatmap
+
+plotHA(annot[ord,], dat, scale = F,
+           title = "Hallmark pathways. Baseline. GSVA scores", col = heatmapCol,column_labels = annot$pubID,column_order = ord,
+           row_labels = p)
 
 ```
 
@@ -418,7 +420,7 @@ table(sampAnnot$Timepoint,sampAnnot$CBR)
 ```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
 ##Subset samples to be included
 annot <- sampAnnot[sampAnnot$Timepoint=="Baseline",]
-table(annot$RECIST)
+table(annot$CBR)
 
 res = read.csv(paste0(inputFolder,"DE_CBR/Baseline_CBR_RespondervNonResponder_DEGenes.csv"), row.names = 1)
 
@@ -449,7 +451,7 @@ plotHA(annot, dat, rownames(dat), title = "Baseline",scale = F,
 ```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
 ##Subset samples to be included
 annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
-table(annot$RECIST)
+table(annot$CBR)
 
 res = read.csv(paste0(inputFolder,"DE_CBR/C1D1_CBR_RespondervNonResponder_DEGenes.csv"), row.names = 1)
 
@@ -472,5 +474,13 @@ annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
 plotHA(annot, dat, rownames(dat), title = "C1D1",scale = F,
        column_labels = annot$pubID, show_row_names = T)
 
+
+```
+
+# R libraries and versions
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+
+sessionInfo()
 
 ```

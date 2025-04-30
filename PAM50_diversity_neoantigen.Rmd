@@ -1,26 +1,17 @@
 ---
-title: "Tables and plots of TCR and neoantigens for the paper"
+title: "Molecular subtypes, TCR, and neoantigens"
 author: "Ludmila Danilova & Joe Tandurella"
 date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
+    toc_float: true
     theme: united
 ---
 
 ```{r setup, echo=FALSE, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-Vizualization for the paper using saved results from TCR, neoantigen, and ESTIMATE analyses. The results that will go to the paper as supplementary tables and figures.
-
-# R libraries and versions
-
-```{r echo=FALSE, message = FALSE, warning = FALSE}
 rm(list = ls())
-library('readxl')
-library('DESeq2')
-library('ComplexHeatmap')
 library(ggplot2)
 library('DT')
 library(ggpubr)
@@ -29,79 +20,144 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 library(plyr)
-library(xlsx)
 library(kableExtra)
+library(RColorBrewer)
+library(ComplexHeatmap)
 
 set.seed(1234)
 sessionInfo()
 
-#rootDir = "C:/Users/ldanilo1/OneDrive - Johns Hopkins/J15221_Evanthia_breast_data/"
-rootDir = "../../"
+inputFolder = "input_data/"
+outputFolder = "output_data/"
+# check if it exists, if not, create
+if (!dir.exists(outputFolder)) {
+  dir.create(outputFolder)
+}
+# load all necessary functions and settings
 
-source(paste0(rootDir,"Analysis/Scripts/params_and_functions.r"))
-# overwrite time colors
-timeCol = setNames(c("black", 'grey45', 'grey75'), c("Baseline","C1D1","Week_8"))
-
-timeLab = c("Baseline","C1D1","Week 8")
+source("params_and_functions.r")
 ```
+
 
 # Load data
+Load patient information from the Nature Cancer paper repo (https://github.com/FertigLab/J15221_trial_paper).
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}
-#===========================
-# load deidentified tcr and neoantigen data
-tcrDat = read.csv(paste0(rootDir,"Analysis/Data/Beta_clones/tcr_beta_diversity.csv"), row.names = 1)
+patInfoLink = "https://raw.githubusercontent.com/FertigLab/J15221_trial_paper/refs/heads/main/input_tables/table_24patient_info.csv"
 
-datatable(tcrDat)
+patInfo = read.csv(patInfoLink, row.names = 1, stringsAsFactors = F)
 
-#========================
-# load neoantigen data
-neoDat = read.csv(paste0(rootDir,"Analysis/Data/Neoantigen/nBinders_classII_strong.csv"))
+# read sample into and merge with patient info
+sampAnnot = read.csv(paste0(inputFolder,"diversity_neoantigen_table.csv"), row.names = 1)
 
-# create rownames for neoantigen data
-rownames(neoDat) = paste(neoDat$pubID, neoDat$Timepoint, sep = "_")
-datatable(neoDat)
+sampAnnot = cbind(sampAnnot, patInfo[sampAnnot$patientID, c("Best_Resp", "biopsy_site")])
 
-#========================
-# read in ESTIMATE data
-estimateCounts <- read.table(paste0(rootDir,'Analysis/Data/RNAseq/estimate/estimateScores.tsv'), header = TRUE, sep = "\t", skip = 2, row.names = 1)
-estimateCounts = data.frame(t(estimateCounts[,-1]), check.names = F)
-rownames(estimateCounts) = fix_sample_names(rownames(estimateCounts))
-# change rownames to match the neoantigen data and publication labels
-# split the rownames to get patient ID and time point
-estimateCounts = cbind(Time = sapply(strsplit(rownames(estimateCounts), "_"), getElement, 2), estimateCounts)
-estimateCounts= cbind(patientID = sapply(strsplit(rownames(estimateCounts), "_"), getElement, 1), estimateCounts)
+# add timepoint
+sampAnnot = sampAnnot %>% mutate(Timepoint = Time)
 
-# change labels of time points
-estimateCounts$pub_Time = factor(estimateCounts$Time, labels = c("Baseline","C1D1","Week_8"))
+```
+# Molecular subtypes
 
-# new rownames
-rownames(estimateCounts) = paste(estimateCounts$patientID, estimateCounts$pub_Time, sep = "_")
-#========================
-# merge tcr and neoantigen data
-dat = merge(tcrDat, neoDat, by = "row.names", all = T)
+PAM50 predictions were done using the pam50 R package.
+https://github.com/hoadley-lab/pam50
+Parker et al. 2009, https://pubmed.ncbi.nlm.nih.gov/19204204/
 
-dat = merge(dat, estimateCounts[,c("StromalScore", "ImmuneScore","ESTIMATEScore")], by.x = "Row.names", by.y = "row.names", all = T)
+The results of predictions are in the `input_data/PAM50` folder 
 
-#====================================
-# calculate tumor purity using ESTIMATE score and the formula from Yoshihara et al. 2013
-# https://www.nature.com/articles/ncomms3612#Sec2
-# Tumour purity=cos (0.6049872018+0.0001467884 × ESTIMATE score). (1)
-#purity = 1- 
-#  cos(0.6049872018 + 0.0001467884 * estimateCounts$ESTIMATEScore) 
+## TNBCtype assingments
+
+To classify samples according to TNBCtype subtypes, we uploaded the gene expression data to the TNBCtype webtool (https://cbc.app.vumc.org/tnbc/). Out of 37 samples, the tool was able to classify 13 samples from six TNBC patients and one week 8 sample from HR+ patient R-9. 
+ 
+The results of predictions are in the `input_data/TNBCtype` folder
 
 
-#============================
-# save a table for the paper
-#write.csv(dat[,c("Row.names","patientID", "Time", "RECIST", "Subtype", "chaos1", "nNeoantigens_strong")], paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/diversity_neoantigen_table.csv"), row.names = F)
-#write.csv(dat[,c("Row.names","patientID", "Time", "RECIST", "Subtype", "chaos1", "nNeoantigens_strong","StromalScore", "ImmuneScore","ESTIMATEScore")], paste0(rootDir,"Doc/2024-11-04_RNAseq_paper/diversity_neoantigen_estimate_table.csv"), row.names = F)
+```{r echo=FALSE, fig.width = 10, fig.height = 10, message = FALSE, warning = FALSE}
+# add PAM50 assignments to the sample annotation
+# read in pam50 assignments
+pam50_assign = read.table(paste0(inputFolder,'PAM50/pam50_assignments.tsv'), sep = '\t', header = T, row.names = 1)
+# fix the row names
+rownames(pam50_assign) = gsub("Post Run-in","C1D1",rownames(pam50_assign))
+rownames(pam50_assign) = gsub("Week 8","Week_8",rownames(pam50_assign))
+
+sampAnnot_pam50 = merge(sampAnnot, pam50_assign, by = "row.names", all.x = T)
+rownames(sampAnnot_pam50) = sampAnnot_pam50$Row.names
+
+#=========================
+# add TNBCtype assignments to the sample annotation
+# read in TNBCtype assignments
+tnbc_assign = read.csv(paste0(inputFolder,'TNBCtype/5ccca5bc-a76e-4320-9c01-49817ade4087_result.csv'), header = T, row.names = 1)
+# coefficients
+tnbc_coef = read.csv(paste0(inputFolder,'TNBCtype/5ccca5bc-a76e-4320-9c01-49817ade4087_coef.csv'), header = T, row.names = 1)
+
+# add this assignment to the patient annotation
+# but first we need to fix samples names in tnbc_assign
+rownames(tnbc_assign) = fix_sample_names(rownames(tnbc_assign))
+rownames(tnbc_coef) = fix_sample_names(rownames(tnbc_coef))
+
+datatable(tnbc_assign, options = list(pageLength = 13))
+datatable(round(tnbc_coef,3), options = list(pageLength = 13))
+
+# add to sample and per patient annotation
+sampAnnot_pam50$TNBCtype = "NA"
+s = intersect(rownames(tnbc_assign), rownames(sampAnnot_pam50))
+sampAnnot_pam50[s,"TNBCtype"] = tnbc_assign[s,"subtype"]
+
+perPat = sampAnnot_pam50[!duplicated(sampAnnot_pam50$patientID),]
+s = intersect(rownames(tnbc_assign), rownames(perPat))
+perPat$TNBCtype = "NA"
+perPat[s,"TNBCtype"] = tnbc_assign[s,"subtype"]
 
 ```
 
-## Diversity Boxplot
+## Heatmap
 
-```{r echo=FALSE, fig.width=10, eval=TRUE}
-df_all = CreateAllFacet(dat,"RECIST")
+The heatmap was generated using the PAM50 genes were selected from the `pam50` package. The heatmap was clustered by samples and genes. The color scheme was set to blue for low expression and red for high expression. The annotation was added to the left side of the heatmap, showing the PAM50 subtype, RECIST response, best response, biopsy site, patient ID, and time point.
+
+
+```{r echo=FALSE, fig.width = 10, fig.height = 10, message = FALSE, warning = FALSE}
+
+# get pam50 genes
+genes = pam50::pam50_annot$gene_name
+
+# read in data for heatmap
+dat = read.csv(paste0(inputFolder,"PAM50/PAM50_genes_heatmap.csv"), row.names = 1, check.names = F)
+
+ord = rownames(sampAnnot_pam50)[order(sampAnnot_pam50$Subtype,sampAnnot_pam50$RECIST,sampAnnot_pam50$Best_Resp, sampAnnot_pam50$biopsy_site, sampAnnot_pam50$patientID, sampAnnot_pam50$Timepoint)]
+sampAnnot_pam50 = sampAnnot_pam50[ord,]
+
+ht = plotHA_pam50_tnbc(sampAnnot_pam50, dat, genes, title = "All samples",
+       column_labels = sampAnnot_pam50$patientID, show_row_names = T,
+       cluster_columns = F)
+
+
+```
+
+## PAM50 correlation with response
+
+Assign per patient PAM50 subtype to correlate with response. If a patient doesn't have a baseline samples, use subsequent time points.
+
+
+```{r echo=FALSE, fig.width = 8, fig.height = 12, message = FALSE, warning = FALSE}
+
+datatable(perPat[,c("patientID","RECIST","Best_Resp","biopsy_site","Timepoint","assignment","TNBCtype")],
+          options = list(pageLength = 19))
+
+tab = table(perPat$assignment, perPat$RECIST)
+print(tab)
+chisq.test(tab)
+
+tab = table(perPat$assignment, perPat$Subtype)
+print(tab)
+chisq.test(tab)
+
+
+```
+
+# TCR diversity
+T cell receptor repertoires derived from RNA sequencing data were estimated using MiXCR and provided by Personalis Inc. (Menlo Park, CA, USA). We loaded the provided data into R programming environment using the immunarch package and calculated the diversity using the repDiversity function with the chaos1 method. The diversity was visualized as boxplots with pairwise two-sided Wilcoxon rank-sum test p-values. 
+
+```{r echo=FALSE, fig.width=10, eval=TRUE, message = FALSE, warning = FALSE}
+df_all = CreateAllFacet(sampAnnot,"RECIST")
 p = ggpaired(df_all , x="Time",y="chaos1", id = "patientID",
              line.size = 0.8, ylab = "Diversity",
              line.color = "RECIST",
@@ -119,11 +175,12 @@ p = ggpaired(df_all , x="Time",y="chaos1", id = "patientID",
 
 ```
 
-## Neoantigen Boxplot
+# Strong binding neoantigens
+Neoantigen binding affinity was estimated using NetMHCIIPan 4.0 by Personalis Inc. (Menlo Park, CA, USA). To calculate the number of strong binders per sample, we took only peptides of expressed genes, and then for every peptide, we took the minimal predicted HLA rank. After that, we calculated the number of peptides that have rank less than 2 as recommended by Reynisson et al (https://academic.oup.com/nar/article/48/W1/W449/5837056) to be a strong binder. 
 
-```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
+```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE, message = FALSE, warning = FALSE}
 
- p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="nNeoantigens_strong", id = "pubID", line.size = 0.8, 
+ p =  ggpaired(CreateAllFacet(sampAnnot, "RECIST") , x="Time",y="nNeoantigens_strong", id = "patientID", line.size = 0.8, 
                line.color = "RECIST",palette =  recistCol,
                ggtheme = theme_minimal(),
                title = "", xlab="Time", ylab = "The number of strong binders") +
@@ -137,42 +194,11 @@ p = ggpaired(df_all , x="Time",y="chaos1", id = "patientID",
  print(p)
 ```
 
-## ESTIMATE Boxplot
+# R libraries and versions
 
-```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
+```{r echo=FALSE, message = FALSE, warning = FALSE}
 
- p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="StromalScore", id = "pubID", line.size = 0.8, 
-               line.color = "RECIST",palette =  recistCol,
-               ggtheme = theme_minimal(),
-               title = "", xlab="Time", ylab = "StromalScore") +
-      facet_wrap("facet") +
-      scale_x_discrete(labels=timeLab)+
-      scale_y_continuous(trans = "log10")+
-      stat_compare_means(comparisons =list(c(1,2), c(2,3),c(1,3)), size = 5)+
-  theme(text = element_text(size = 20),
-        axis.text.x = element_text(size = 17), legend.position="none") 
-
- print(p)
-#=========== 
-p =  ggpaired(CreateAllFacet(dat, "RECIST") , x="Time",y="ImmuneScore", id = "pubID", line.size = 0.8, 
-               line.color = "RECIST",palette =  recistCol,
-               ggtheme = theme_minimal(),
-               title = "", xlab="Time", ylab = "ImmuneScore") +
-      facet_wrap("facet") +
-      scale_x_discrete(labels=timeLab)+
-      scale_y_continuous(trans = "log10")+
-      stat_compare_means(comparisons =list(c(1,2), c(2,3),c(1,3)), size = 5)+
-  theme(text = element_text(size = 20),
-        axis.text.x = element_text(size = 17), legend.position="none") 
-
- print(p)
-```
-# PUREE tumor purity
-
-```{r echo=FALSE, fig.width=10, fig.height=6 , eval=TRUE}
-# read in the purity data
-purity = read.table(paste0(rootDir,"Analysis/Data/RNAseq/PUREE/45d940a2-5c50-41f6-ba24-497eba7f793c.txt"), row.names = 1, header = T, sep = "\t")
-
-summary(purity)
+sessionInfo()
 
 ```
+

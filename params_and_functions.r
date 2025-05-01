@@ -1,4 +1,4 @@
-# parameters and functions to use in scritps for J15221
+# parameters and functions to use in scritps 
 
 
 # hetamap colors
@@ -138,70 +138,6 @@ getWilcoxDelta = function(k, dat)
            pValue_d_T2_T1_RvsNR = p9))
 }
 
-# splits a string with gene names and fixes names
-# removeNeg is a flag to remove genes with negative sign
-fixGeneNames = function(x, removeNeg = F)
-{
-  library(stringr)
-  g = unlist(strsplit(x, ','))
-  if (removeNeg) 
-  {
-    # find all genes with hyphen at the end
-    match = grep('[-]$',g)
-    # removes genes with hyphens at the end
-    if (length(match) > 0) g = g[-match]
-  }
-
-  # remove hyphens in the end
-  # find all genes with hyphen at the end
-  match = grep('[-]$',g)
-  # removes hyphens at the end
-  g[match] = str_remove_all(g[match], '[-]$')
-  # separates genes with dots
-  g = unlist(strsplit(g, '.', fixed = T))
-  # remove unnecessary words
-  g = gsub("lo","",g, fixed = T)
-  g = gsub("low/","",g, fixed = T)
-  g = gsub("hi","",g, fixed = T)
-  g = gsub("(migratory cDC2 only)","",g, fixed = T)
-  # remove white spaces
-  g = str_trim(g)
-  # remove + at the end
-  g = str_remove_all(g, '[+]$')
-  # remove * at the end
-  g = str_remove_all(g, '[*]')
-  # convert to upper case
-  str_to_upper(g)
-  #  print(g)
-}
-
-# function to make barplots
-plotBars = function(dat, pos = "stack", plot_avg = F, plot_sum = F)
-{
-  
-  df = data.frame(dat, sampInfo[rownames(dat), c("RECIST","Time", "Type")],
-                  patientID = sampInfo[rownames(dat),"Sample.Group.ID"], check.names = F)
-  if (plot_sum){
-    df_melt = melt(df, id.vars = c("RECIST","Time", "Type"), measure.vars = colnames(dat))
-    # Stacked bar plot
-    print(ggplot(df_melt, aes(fill=variable, y=as.numeric(value), x=Time)) + 
-            geom_bar(position=pos, stat="identity") +
-            ylab("Summarized Cell Proportions") +
-            facet_wrap("RECIST"))
-  }
-  # plot average
-  if (plot_avg){
-    avg = aggregate(df[,colnames(dat)],by = list(df$Time, df$RECIST), FUN = mean, na.rm = T)
-    colnames(avg)[1:2] = c("Time","RECIST")
-    df_melt = melt(avg, id.vars = c("Time","RECIST"), measure.vars = colnames(dat))
-    # Stacked bar plot
-    print(ggplot(df_melt, aes(fill=variable, y=as.numeric(value), x=Time)) + 
-            geom_bar(position=pos, stat="identity") +
-            ylab("Average Cell Proportions") +
-            facet_wrap("RECIST"))
-    
-  }
-}
 
 # functions for DE analysis
 
@@ -502,35 +438,6 @@ boxplotSplitByTime_expr = function(dat, i, sampInfo, timepoint= "Timepoint")
     theme_bw()
   
   print(p)
-}
-
-# correlates expression of cell markers with cell proportions
-# type1 is a cell type name in Edgar's list
-# type2 is a cibersort cell type
-plotCor = function(type1, type2)
-{
-  #check if the type is in markers list. If not, print the name
-  if (type1 %in% rownames(markers))
-  {
-    # genes to correlate
-    g = intersect(rownames(rnaData),fixGeneNames(markers[type1,2]) )
-    if (length(g) == 0) return(NULL);
-    corMat = matrix(nrow = length(g), ncol = 3, dimnames = list(g,timeLab))
-    for(i in timeLab){
-      # samples to correlate
-      s = intersect(colnames(rnaData), sampInfo %>% filter(Time == i) %>% rownames())
-      # combine expression and cibersort results
-      dat = cbind(t(rnaData[g,s]), ciberRes[s, type2])
-      # run correlation
-      corRes = cor(dat, method = 'spearman')
-      corMat[g,i] = corRes[g,length(g)+1]
-    }
-    # plot correlation coefficients cells vs genes
-    p = pheatmap(corMat, scale = "none", main = paste0('Spearman correlation coefficients. ', type1), cluster_rows = F, cluster_cols = F, breaks = seq(-1, 1, length.out = 21), color = redBlue, legend_labels = "Spearman correlation")
-    
-    print(p)
-    
-  }else{print(type1)}
 }
 
 # function to fix sample names after TNBCtype classification

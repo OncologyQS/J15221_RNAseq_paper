@@ -61,6 +61,16 @@ sampAnnot = sampAnnot %>% mutate(Timepoint = Time)
 # add pubID
 sampAnnot$pubID = sapply(strsplit(rownames(sampAnnot), "_"),
                             getElement, 1)
+```
+
+## Patient numbers
+
+```{r echo=FALSE, message = FALSE, warning = FALSE}
+# restrict to the patients with RNA seq data
+patInfo = patInfo[unique(sampAnnot$pubID),]
+table(patInfo$Subtype)
+table(patInfo$RECIST)
+table(patInfo$Subtype,patInfo$RECIST)
 
 ```
 

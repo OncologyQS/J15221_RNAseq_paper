@@ -486,6 +486,7 @@ plotHA(annot, dat, rownames(dat), title = "C1D1",scale = F,
 
 
 ```
+
 # TNBC DE
 
 Results of DE analysis between RECIST responders vs non-responders of TNBC patients only at each timepoint.
@@ -493,8 +494,9 @@ Results of DE analysis between RECIST responders vs non-responders of TNBC patie
 ## sample numbers
 
 ```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
+annot_tnbc = sampAnnot[sampAnnot$Subtype=="TNBC",]
 
-table(sampAnnot$Subtype,sampAnnot$RECIST)
+table(annot_tnbc$Timepoint,annot_tnbc$RECIST)
 
 ```
 
@@ -502,7 +504,7 @@ table(sampAnnot$Subtype,sampAnnot$RECIST)
 
 ```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
 ##Subset samples to be included
-annot <- sampAnnot[sampAnnot$Timepoint=="Baseline"&sampAnnot$Subtype=="TNBC",]
+annot <- annot_tnbc[sampAnnot$Timepoint=="Baseline",]
 table(annot$RECIST)
 
 res = read.csv(paste0(inputFolder,"DE_TNBC/Baseline_TNBC_RespondervNonResponder_DEGenes.csv"), row.names = 1)
@@ -521,8 +523,8 @@ topDE_b = plotVolcano(res, fdrThr = 0.05, logFCthr = 0.5,
 
 ```{r echo=FALSE, fig.width = 6, fig.height=6, message = FALSE, warning = FALSE}
 ##Subset samples to be included
-annot <- sampAnnot[sampAnnot$Timepoint=="C1D1",]
-table(annot$CBR)
+annot <- annot_tnbc[annot_tnbc$Timepoint=="C1D1",]
+table(annot$RECIST)
 
 res = read.csv(paste0(inputFolder,"DE_TNBC/C1D1_TNBC_RespondervNonResponder_DEGenes.csv"), row.names = 1)
 
